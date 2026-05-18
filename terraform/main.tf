@@ -41,4 +41,11 @@ resource "hcloud_server" "hermes" {
       id = firewall_ids.value
     }
   }
+
+  lifecycle {
+    precondition {
+      condition     = !var.cloud_firewall_enabled || var.deployer_ip != ""
+      error_message = "deployer_ip must be set when cloud_firewall_enabled is true"
+    }
+  }
 }
