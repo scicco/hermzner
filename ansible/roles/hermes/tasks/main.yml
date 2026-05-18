@@ -1,0 +1,92 @@
+---
+- name: Ensure quadlet directory exists (quadlet mode)
+  file:
+    path: "{{ hermes_quadlet_dir }}"
+    state: directory
+    owner: "{{ hermes_user }}"
+    group: "{{ hermes_user }}"
+    mode: "0700"
+  when: hermes_runtime_backend == "quadlet"
+
+- name: Ensure hermes data directory exists
+  file:
+    path: "{{ hermes_data_dir }}"
+    state: directory
+    owner: "{{ hermes_user }}"
+    group: "{{ hermes_user }}"
+    mode: "0700"
+
+- name: Generate API key if not present
+  shell:
+    cmd: |
+      if [ ! -f {{ hermes_data_dir }}/.env ]; then
+        API_KEY=$(openssl rand -hex 32)
+        echo "API_SERVER_KEY=${API_KEY}" > {{ hermes_data_dir }}/.env
+      fi
+    creates: "{{ hermes_data_dir }}/.env"
+  no_log: true
+
+- name: Set .env permissions
+  file:
+    path: "{{ hermes_data_dir }}/.env"
+    owner: "{{ hermes_user }}"
+    group: "{{ hermes_user }}"
+    mode: "0600"
+
+- name: Deploy Quadlet container unit
+  template:
+    src: hermes.container.j2
+    dest: "{{ hermes_quadlet_file }}"
+    owner: "{{ hermes_user }}"
+    group: "{{ hermes_user }}"
+    mode: "0600"
+  when: hermes_runtime_backend == "quadlet"
+  notify: reload systemd user
+
+- name: Deploy Compose file
+  template:
+    src: compose.yaml.j2
+    dest: "{{ hermes_compose_file }}"
+    owner: "{{ hermes_user }}"
+    group: "{{ hermes_user }}"
+    mode: "0600"
+  when: hermes_runtime_backend == "compose"
+
+- name: Start runtime (quadlet mode)
+  become: true
+  become_user: "{{ hermes_user }}"
+  systemd_service:
+    scope: user
+    name: hermes
+    state: started
+    enabled: true
+    daemon_reload: true
+  when:
+    - hermes_runtime_backend == "quadlet"
+    - hermes_start_runtime | bool
+
+- name: Start runtime (compose mode)
+  become: true
+  become_user: "{{ hermes_user }}"
+  command:
+    cmd: podman-compose -f {{ hermes_compose_file }} up -d
+  when:
+    - hermes_runtime_backend == "compose"
+    - hermes_start_runtime | bool
+
+- name: Print next steps
+  debug:
+    msg: >
+      Hermes prepared at {{ hermes_data_dir }}.
+      {% if hermes_start_runtime %}
+      Container started.
+      {% else %}
+      Run interactive setup: podman run -it --rm -v {{ hermes_data_dir }}:/opt/data{{ podman_volume_label_suffix }} {{ hermes_image_ref }} setup
+
+      Then start:
+      {% if hermes_runtime_backend == 'quadlet' %}
+      sudo -iu {{ hermes_user }} systemctl --user enable --now hermes.service
+      {% else %}
+      podman-compose -f {{ hermes_compose_file }} up -d
+      {% endif %}
+      {% endif %}

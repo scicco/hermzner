@@ -1,0 +1,6 @@
+---
+- name: reload systemd user
+  become: true
+  become_user: "{{ hermes_user }}"
+  command:
+    cmd: systemctl --user daemon-reload
