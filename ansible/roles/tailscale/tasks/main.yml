@@ -1,0 +1,45 @@
+---
+- name: Add Tailscale apt GPG key
+  apt_key:
+    url: https://pkgs.tailscale.com/stable/ubuntu/noble.noarmor.gpg
+    state: present
+
+- name: Add Tailscale apt repository
+  apt_repository:
+    repo: "deb https://pkgs.tailscale.com/stable/ubuntu noble main"
+    state: present
+    update_cache: true
+
+- name: Pin Tailscale package
+  copy:
+    content: |
+      Package: tailscale
+      Pin: origin pkgs.tailscale.com
+      Pin-Priority: 1001
+    dest: /etc/apt/preferences.d/tailscale
+    mode: "0644"
+
+- name: Install tailscale
+  apt:
+    name: tailscale
+    state: present
+
+- name: Authenticate and start tailscale
+  command:
+    cmd: tailscale up --ssh --auth-key {{ tailscale_auth_key }}
+  no_log: true
+  changed_when: false
+
+- name: Wait for tailscale to be ready
+  command:
+    cmd: tailscale status --json
+  register: tailscale_status
+  changed_when: false
+  retries: 10
+  delay: 2
+  until: tailscale_status.rc == 0
+
+- name: Register tailscale IP
+  set_fact:
+    tailscale_ip: "{{ (tailscale_status.stdout | from_json).Self.DNSName | regex_replace('\\.$', '') }}"
+  when: tailscale_status.stdout | length > 0
