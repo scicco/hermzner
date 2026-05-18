@@ -1,0 +1,57 @@
+---
+- name: Provision Hermes server
+  hosts: hermes
+  gather_facts: true
+  become: true
+
+  pre_tasks:
+    - name: Fail if hermes_image_ref is not set
+      assert:
+        that:
+          - hermes_image_ref is defined
+          - hermes_image_ref | length > 0
+        fail_msg: "hermes_image_ref must be set to a full image reference (e.g., repo@sha256:...)"
+
+    - name: Fail on unpinned image unless explicitly allowed
+      assert:
+        that:
+          - allow_unpinned_image | bool or '@sha256:' in hermes_image_ref
+        fail_msg: "hermes_image_ref must use a digest pin (@sha256:...) unless allow_unpinned_image=true"
+
+    - name: Fail on permissive CORS
+      assert:
+        that:
+          - api_server_cors_origins != "*"
+        fail_msg: "api_server_cors_origins must not be wildcard"
+
+    - name: Validate hermes_runtime_backend
+      assert:
+        that:
+          - hermes_runtime_backend in ['quadlet', 'compose']
+        fail_msg: "hermes_runtime_backend must be 'quadlet' or 'compose'"
+
+    - name: Validate public_ssh_policy
+      assert:
+        that:
+          - public_ssh_policy in ['restricted', 'disabled_after_tailscale', 'open_key_only']
+        fail_msg: "public_ssh_policy must be one of: restricted, disabled_after_tailscale, open_key_only"
+
+    - name: Validate podman_volume_label_suffix
+      assert:
+        that:
+          - podman_volume_label_suffix in ['', ':Z']
+        fail_msg: "podman_volume_label_suffix must be '' or ':Z'"
+
+    - name: Fail if backup encryption is enabled but no recipient is set
+      assert:
+        that:
+          - backup_age_recipient | length > 0
+        fail_msg: "backup_age_recipient must be set when backup_encryption_enabled=true"
+      when: backup_encryption_enabled | bool
+
+  roles:
+    - role: podman
+    - role: tailscale
+    - role: security
+    - role: hermes
+    - role: backup
