@@ -19,8 +19,12 @@ info "Checking prerequisites..."
 command -v terraform >/dev/null 2>&1 || error "terraform is not installed"
 command -v ansible-playbook >/dev/null 2>&1 || error "ansible-playbook is not installed"
 
+SSH_KEY="${PRIVATE_SSH_KEY:-$HOME/.ssh/id_ed25519}"
+
 [ -n "${HCLOUD_TOKEN:-}" ]       || error "HCLOUD_TOKEN is not set"
 [ -n "${TAILSCALE_AUTH_KEY:-}" ] || error "TAILSCALE_AUTH_KEY is not set"
+
+[ -f "$SSH_KEY" ] || error "SSH key not found at $SSH_KEY"
 
 # Phase 2: Terraform apply
 info "Applying Terraform..."
@@ -37,17 +41,18 @@ all:
     hermes:
       ansible_host: ${SERVER_IP}
       ansible_user: root
-      ansible_ssh_private_key_file: ~/.ssh/id_ed25519
+      ansible_ssh_private_key_file: ${SSH_KEY}
 EOF
 info "Inventory written to ansible/inventory/hosts.yml"
 
 # Phase 4: Wait for SSH readiness
 info "Waiting for SSH..."
+mkdir -p ~/.ssh
 RETRIES=10
 DELAY=5
 for i in $(seq 1 $RETRIES); do
-  if ssh-keyscan -H "${SERVER_IP}" 2>/dev/null | grep -q "ED25519\|ECDSA\|RSA" && \
-     ssh -o ConnectTimeout=5 -o StrictHostKeyChecking=accept-new root@"${SERVER_IP}" id >/dev/null 2>&1; then
+  ssh-keyscan -H "${SERVER_IP}" 2>/dev/null >> ~/.ssh/known_hosts
+  if ssh -o ConnectTimeout=5 root@"${SERVER_IP}" id >/dev/null 2>&1; then
     info "SSH ready (attempt ${i})"
     break
   fi
@@ -62,7 +67,6 @@ done
 
 # Phase 5: Run Ansible site
 info "Running Ansible site playbook..."
-ANSIBLE_HOST_KEY_CHECKING=False \
 ansible-playbook ansible/playbooks/site.yml \
   --extra-vars "tailscale_auth_key=${TAILSCALE_AUTH_KEY}"
 
