@@ -4,7 +4,7 @@
 
 Provision a hardened Hetzner VPS (Ubuntu 24.04) with rootless Podman and deploy Hermes Agent behind Tailscale. Terraform creates the VPS, Ansible configures it, a `deploy.sh` orchestrates both.
 
-**Security baseline:** This project implements all 20 principles from [`secure-hermes-podman-provisioning-principles.md`](./secure-hermes-podman-provisioning-principles.md). Every role and template is designed to satisfy specific principles — see the coverage table in the spec at `docs/superpowers/specs/2026-05-18-hermes-podman-provisioning-design.md`.
+**Security baseline:** This project implements all 20 principles from [`COVENANT.md`](./COVENANT.md). Every role and template is designed to satisfy specific principles — see the coverage table in the spec at `docs/superpowers/specs/2026-05-18-hermes-podman-provisioning-design.md`.
 
 ## Repository Layout
 

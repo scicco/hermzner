@@ -150,7 +150,7 @@ These are intentional for the MVP but worth addressing in a production-hardened 
 
 ## Security Principles
 
-This project implements all 20 principles from [`secure-hermes-podman-provisioning-principles.md`](./secure-hermes-podman-provisioning-principles.md). See the principle coverage table in `docs/superpowers/specs/2026-05-18-hermes-podman-provisioning-design.md` for the full mapping from principle to implementation.
+This project implements all 20 principles from [`COVENANT.md`](./COVENANT.md). See the principle coverage table in `docs/superpowers/specs/2026-05-18-hermes-podman-provisioning-design.md` for the full mapping from principle to implementation.
 
 ## Reporting a Vulnerability
 
