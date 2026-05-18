@@ -12,6 +12,9 @@ hermes_runtime_backend: quadlet
 hermes_start_runtime: false
 backup_encryption_enabled: false
 sshd_hardening_enabled: false
+security_fail2ban_enabled: true
+security_disable_unused_services: true
+security_harden_shared_memory: true
 
 # Resource limits
 hermes_memory_limit: 2g

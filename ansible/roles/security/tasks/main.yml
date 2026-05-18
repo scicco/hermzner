@@ -119,3 +119,71 @@
     - { key: net.ipv4.conf.all.accept_source_route, value: "0" }
     - { key: kernel.kptr_restrict, value: "2" }
     - { key: kernel.dmesg_restrict, value: "1" }
+    - { key: net.ipv4.conf.all.rp_filter, value: "1" }
+    - { key: net.ipv4.conf.default.rp_filter, value: "1" }
+    - { key: net.ipv4.icmp_echo_ignore_broadcasts, value: "1" }
+    - { key: net.ipv4.tcp_syncookies, value: "1" }
+    - { key: net.ipv4.conf.all.log_martians, value: "1" }
+    - { key: net.ipv4.conf.default.log_martians, value: "1" }
+    - { key: net.ipv6.conf.all.accept_source_route, value: "0" }
+    - { key: net.ipv6.conf.default.accept_source_route, value: "0" }
+    - { key: net.ipv6.conf.all.accept_redirects, value: "0" }
+    - { key: net.ipv6.conf.default.accept_redirects, value: "0" }
+    - { key: net.ipv6.conf.all.accept_ra, value: "0" }
+    - { key: net.ipv6.conf.default.accept_ra, value: "0" }
+
+- name: Install fail2ban
+  apt:
+    name: fail2ban
+    state: present
+  when: security_fail2ban_enabled | bool
+
+- name: Create fail2ban jail.local
+  copy:
+    content: |
+      [DEFAULT]
+      bantime = 3600
+      findtime = 600
+      maxretry = 3
+      ignoreip = 127.0.0.1/8 ::1
+
+      [sshd]
+      enabled = true
+      port = ssh
+      logpath = %(sshd_log)s
+      maxretry = 3
+    dest: /etc/fail2ban/jail.local
+    mode: "0644"
+  notify: restart fail2ban
+  when: security_fail2ban_enabled | bool
+
+- name: Enable and start fail2ban
+  systemd:
+    name: fail2ban
+    state: started
+    enabled: true
+  when: security_fail2ban_enabled | bool
+
+- name: Disable unused network services
+  systemd:
+    name: "{{ item }}"
+    state: stopped
+    enabled: false
+    masked: true
+  failed_when: false
+  loop:
+    - avahi-daemon
+    - cups
+    - ModemManager
+    - multipathd
+    - udisks2
+  when: security_disable_unused_services | bool
+
+- name: Secure /dev/shm mount options
+  mount:
+    path: /dev/shm
+    src: tmpfs
+    fstype: tmpfs
+    opts: "defaults,noexec,nosuid,nodev"
+    state: mounted
+  when: security_harden_shared_memory | bool

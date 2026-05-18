@@ -14,7 +14,7 @@ ansible/           → 5 roles + 2 playbooks + group_vars
   roles/
     podman/        → Rootless Podman, hermes user, subuid/subgid, linger
     tailscale/     → apt install, auth key, SSH enabled, IP registration
-    security/      → UFW, sysctl hardening, unattended-upgrades, SSH policy, umask 077
+    security/      → UFW, sysctl hardening, unattended-upgrades, SSH policy, umask 077, fail2ban, disable unused services, /dev/shm hardening
     hermes/        → Quadlet (default) + Compose (fallback) templates, secrets
     backup/        → age-encrypted daily backups, 30-day retention
   playbooks/
@@ -37,6 +37,9 @@ teardown.sh        → terraform destroy + cleanup
 | Backup encryption | age (opt-in) | Principle 6 — `backup_encryption_enabled` + `backup_age_recipient` (public key from deployer, not generated on-server) |
 | Token handling | `TF_VAR_hcloud_token` env var | No `.tfvars` file on disk; Terraform reads from environment |
 | SSH hardening | Opt-in via `sshd_hardening_enabled` | Default `false` — Ubuntu cloud images ship secure defaults |
+| fail2ban | Enabled by default (`security_fail2ban_enabled`) | Bans SSH IPs after 3 failed attempts within 10 minutes |
+| Unused services | Disabled by default (`security_disable_unused_services`) | Stops + masks avahi-daemon, cups, ModemManager, multipathd, udisks2 |
+| Shared memory | Hardened by default (`security_harden_shared_memory`) | `/dev/shm` mounted with `noexec,nosuid,nodev` |
 
 ## Preflight Assertions (fail-closed)
 
