@@ -1,0 +1,79 @@
+---
+- name: Install system packages
+  apt:
+    name:
+      - ufw
+      - unattended-upgrades
+    state: present
+
+- name: Enable unattended-upgrades
+  copy:
+    content: |
+      APT::Periodic::Update-Package-Lists "1";
+      APT::Periodic::Download-Upgradeable-Packages "1";
+      APT::Periodic::AutocleanInterval "7";
+      APT::Periodic::Unattended-Upgrade "1";
+    dest: /etc/apt/apt.conf.d/20auto-upgrades
+    mode: "0644"
+
+- name: Set UFW defaults
+  ufw:
+    direction: "{{ item.dir }}"
+    policy: "{{ item.policy }}"
+  loop:
+    - { dir: incoming, policy: deny }
+    - { dir: outgoing, policy: allow }
+
+- name: Allow SSH on tailscale interface
+  ufw:
+    rule: allow
+    interface: tailscale0
+    port: "22"
+    proto: tcp
+
+- name: Apply public SSH policy
+  block:
+    - name: Allow SSH from deployer IP (restricted mode)
+      ufw:
+        rule: allow
+        port: "22"
+        proto: tcp
+        from_ip: "{{ ansible_host }}"
+      when: public_ssh_policy == "restricted"
+
+    - name: Do not add public SSH allow rule (disabled_after_tailscale)
+      debug:
+        msg: "Public SSH will be disabled after Tailscale is verified"
+      when: public_ssh_policy == "disabled_after_tailscale"
+
+    - name: Allow SSH from anywhere (open_key_only mode)
+      ufw:
+        rule: allow
+        port: "22"
+        proto: tcp
+      when: public_ssh_policy == "open_key_only"
+  when: public_ssh_policy != "disabled_after_tailscale"
+
+- name: Enable UFW
+  ufw:
+    state: enabled
+
+- name: Set hermes user umask
+  lineinfile:
+    path: "{{ hermes_home }}/.bashrc"
+    line: "umask 077"
+    create: true
+    owner: "{{ hermes_user }}"
+    mode: "0644"
+
+- name: Harden sysctl
+  sysctl:
+    name: "{{ item.key }}"
+    value: "{{ item.value }}"
+    state: present
+    reload: true
+  loop:
+    - { key: net.ipv4.ip_forward, value: "0" }
+    - { key: net.ipv4.conf.all.accept_source_route, value: "0" }
+    - { key: kernel.kptr_restrict, value: "2" }
+    - { key: kernel.dmesg_restrict, value: "1" }
