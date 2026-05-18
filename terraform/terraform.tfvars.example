@@ -1,4 +1,4 @@
-hcloud_token     = "your-hcloud-api-token"
+# hcloud_token is passed via TF_VAR_hcloud_token environment variable
 ssh_public_key   = "ssh-ed25519 AAAAC3... your-key-comment"
 # Optional overrides:
 # server_type          = "cx23"

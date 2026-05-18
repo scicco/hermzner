@@ -15,7 +15,7 @@
     - name: Fail on unpinned image unless explicitly allowed
       assert:
         that:
-          - allow_unpinned_image | bool or '@sha256:' in hermes_image_ref
+          - allow_unpinned_image | default(false) | bool or '@sha256:' in hermes_image_ref
         fail_msg: "hermes_image_ref must use a digest pin (@sha256:...) unless allow_unpinned_image=true"
 
     - name: Fail on permissive CORS

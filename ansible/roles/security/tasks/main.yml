@@ -58,6 +58,44 @@
   ufw:
     state: enabled
 
+- name: Configure sshd hardening
+  block:
+    - name: Disable password authentication
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: "^#?PasswordAuthentication"
+        line: "PasswordAuthentication no"
+      notify: restart sshd
+
+    - name: Disable root password login
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: "^#?PermitRootLogin"
+        line: "PermitRootLogin prohibit-password"
+      notify: restart sshd
+
+    - name: Restrict SSH to specific users
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: "^#?AllowUsers"
+        line: "AllowUsers {{ hermes_user }} root"
+      notify: restart sshd
+
+    - name: Set SSH MaxAuthTries
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: "^#?MaxAuthTries"
+        line: "MaxAuthTries 3"
+      notify: restart sshd
+
+    - name: Set SSH MaxSessions
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: "^#?MaxSessions"
+        line: "MaxSessions 5"
+      notify: restart sshd
+  when: sshd_hardening_enabled | bool
+
 - name: Set hermes user umask
   lineinfile:
     path: "{{ hermes_home }}/.bashrc"

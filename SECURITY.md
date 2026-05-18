@@ -74,7 +74,7 @@ hermes_image_ref: docker.io/nousresearch/hermes-agent@sha256:<digest>
 
 The `allow_unpinned_image: false` default means any floating tag (`:latest`, `:stable`) triggers a preflight failure — even a non-empty reference without `@sha256:` is rejected. This is checked before any role executes.
 
-### The verification playbook runs 9 checks, fail-closed
+### The verification playbook runs 11 checks, fail-closed
 
 `ansible/playbooks/verify.yml` validates:
 
@@ -82,13 +82,31 @@ The `allow_unpinned_image: false` default means any floating tag (`:latest`, `:s
 2. User namespace is active
 3. All capabilities are dropped
 4. `no-new-privileges` is enabled
-5. Ports are bound to `127.0.0.1`
-6. Container processes run as the `hermes` user
-7. Data directory is `0700`
-8. `.env` file is `0600`
-9. Health endpoint responds on port `8642`
+5. seccomp is not disabled
+6. AppArmor is not disabled
+7. Ports are bound to `127.0.0.1`
+8. Container processes run as the `hermes` user
+9. Data directory is `0700`
+10. `.env` file is `0600`
+11. Health endpoint responds on port `8642`
 
 If any check fails, the playbook exits non-zero. No partial pass.
+
+### Image pinning override comes from an environment variable, not group_vars
+
+`allow_unpinned_image` is passed to Ansible via `ALLOW_UNPINNED_IMAGE` env var in `deploy.sh`, not from `group_vars/all.yml`. This means:
+
+- Temporarily overriding digest pinning requires an explicit env var (`ALLOW_UNPINNED_IMAGE=true ./deploy.sh`), not an edit to a YAML config file
+- No risk of accidentally committing `allow_unpinned_image: true` to version control
+- The override is session-scoped — it can't persist across runs
+
+### Tailscale auth keys should be ephemeral where possible
+
+`deploy.sh` passes `TAILSCALE_AUTH_KEY` to Ansible as an `--extra-vars` argument. This is visible in the process table during Ansible execution. To minimize blast radius:
+
+- **Prefer ephemeral auth keys** (`--ephemeral`) — they are discarded after the first use and cannot be re-used if leaked
+- **Tag reusable keys** with a clear purpose and set an expiry
+- **Restrict key scope** in the Tailscale admin console to the minimum set of tags and ACLs needed
 
 ### Firewall is interface-specific, not subnet-based
 
@@ -122,15 +140,13 @@ UFW allows SSH on the `tailscale0` interface, not on the Tailscale CGNAT subnet 
 
 These are intentional for the MVP but worth addressing in a production-hardened iteration:
 
-1. **No `sshd_config` hardening** — SSH security relies on network-layer controls (UFW + Tailscale) rather than sshd-level configuration. Ubuntu 24.04 defaults are secure (`PasswordAuthentication no`, `PermitRootLogin prohibit-password`), but explicit settings would be defense-in-depth.
+1. **No Terraform remote state** — State is stored locally in `terraform.tfstate`. Team operations or machine loss would be destructive. A `backend "s3"` or similar should be configured for shared use.
 
-2. **`HCLOUD_TOKEN` written unencrypted to disk** — The token ends up in `terraform.tfvars` on the deployer machine. This could be avoided with `sops`, `pass`, or HashiCorp Vault integration.
+2. **No automated image digest updates** — Pinning to a digest means no automatic updates for the Hermes Agent image. Updates require manually changing `hermes_image_ref` in `group_vars/all.yml`.
 
-3. **No Terraform remote state** — State is stored locally in `terraform.tfstate`. Team operations or machine loss would be destructive. A `backend "s3"` or similar should be configured for shared use.
+3. **`sshd_config` hardening opt-in** — Enabled via `sshd_hardening_enabled: true`. Defaults to `false` because Ubuntu 24.04's cloud-image defaults are already secure (`PasswordAuthentication no`, `PermitRootLogin prohibit-password`). Set to `true` when you want explicit settings regardless of base image defaults.
 
-4. **No automated image digest updates** — Pinning to a digest means no automatic updates for the Hermes Agent image. Updates require manually changing `hermes_image_ref` in `group_vars/all.yml`.
-
-5. **`allow_unpinned_image` bypass** — Setting this to `true` in `group_vars/all.yml` disables digest pinning. The same config file controls both the pinning requirement and its override. A separate mechanism (env var, separate config file) would be stronger.
+4. **`HCLOUD_TOKEN` passed via `TF_VAR_hcloud_token`** — The token is passed as an environment variable, not written to disk. However, it is visible in the `deploy.sh` process environment for the duration of the run.
 
 ## Security Principles
 

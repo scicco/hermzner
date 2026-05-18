@@ -26,8 +26,11 @@ SSH_KEY="${PRIVATE_SSH_KEY:-$HOME/.ssh/id_ed25519}"
 
 [ -f "$SSH_KEY" ] || error "SSH key not found at $SSH_KEY"
 
+ALLOW_UNPINNED="${ALLOW_UNPINNED_IMAGE:-false}"
+
 # Phase 2: Terraform apply
 info "Applying Terraform..."
+export TF_VAR_hcloud_token="${HCLOUD_TOKEN}"
 terraform -chdir=terraform apply -auto-approve
 
 # Phase 3: Extract server IP
@@ -68,7 +71,7 @@ done
 # Phase 5: Run Ansible site
 info "Running Ansible site playbook..."
 ansible-playbook ansible/playbooks/site.yml \
-  --extra-vars "tailscale_auth_key=${TAILSCALE_AUTH_KEY}"
+  --extra-vars "tailscale_auth_key=${TAILSCALE_AUTH_KEY} allow_unpinned_image=${ALLOW_UNPINNED}"
 
 # Phase 6: Verify (only if runtime was started)
 if grep -q "hermes_start_runtime: true" ansible/group_vars/all.yml 2>/dev/null; then
@@ -91,3 +94,9 @@ echo "  Server IP:     ${SERVER_IP}"
 echo "  Tailscale IP:  ${TAILSCALE_IP}"
 echo "  SSH (pub):     ssh root@${SERVER_IP}"
 echo "  SSH (ts):      ssh hermes@${TAILSCALE_IP}"
+echo ""
+echo "  -------- SSH Hardening --------"
+echo "  sshd_config hardening is DISABLED by default."
+echo "  To enable: set sshd_hardening_enabled: true in ansible/group_vars/all.yml"
+echo "  This disables password auth, restricts root login, and limits users/sessions."
+echo "  Without it, SSH security relies on network controls (UFW + Tailscale)."

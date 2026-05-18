@@ -5,13 +5,13 @@ hermes_home: /home/hermes
 
 # Image pinning — must be set per deployment
 hermes_image_ref: ""
-allow_unpinned_image: false
 
 # Feature toggles
 hermes_dashboard_enabled: false
 hermes_runtime_backend: quadlet
 hermes_start_runtime: false
 backup_encryption_enabled: false
+sshd_hardening_enabled: false
 
 # Resource limits
 hermes_memory_limit: 2g
