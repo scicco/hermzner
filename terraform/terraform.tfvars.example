@@ -1,0 +1,8 @@
+hcloud_token     = "your-hcloud-api-token"
+ssh_public_key   = "ssh-ed25519 AAAAC3... your-key-comment"
+# Optional overrides:
+# server_type          = "cx23"
+# location             = "fsn1"
+# server_name          = "hermes"
+# cloud_firewall_enabled = true
+# deployer_ip          = "203.0.113.1"
