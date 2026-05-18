@@ -1,0 +1,31 @@
+#!/bin/bash
+set -euo pipefail
+
+BACKUP_DIR="{{ hermes_backup_dir }}"
+DATA_DIR="{{ hermes_data_dir }}"
+RETENTION_DAYS={{ backup_retention_days }}
+TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+ARCHIVE="${BACKUP_DIR}/hermes-backup-${TIMESTAMP}.tar.gz"
+ENCRYPTED="${ARCHIVE}.age"
+AGE_RECIPIENT="{{ backup_age_recipient }}"
+
+mkdir -p "${BACKUP_DIR}"
+
+tar czf "${ARCHIVE}" -C "$(dirname "${DATA_DIR}")" "$(basename "${DATA_DIR}")"
+
+{% if backup_encryption_enabled %}
+if command -v age &> /dev/null && [ -n "${AGE_RECIPIENT}" ]; then
+  age -r "${AGE_RECIPIENT}" -o "${ENCRYPTED}" "${ARCHIVE}"
+  rm -f "${ARCHIVE}"
+  chmod 0600 "${ENCRYPTED}"
+  echo "Encrypted backup: ${ENCRYPTED}"
+else
+  echo "WARNING: Encryption enabled but age not available. Storing unencrypted."
+  chmod 0600 "${ARCHIVE}"
+fi
+{% else %}
+chmod 0600 "${ARCHIVE}"
+echo "Backup: ${ARCHIVE}"
+{% endif %}
+
+find "${BACKUP_DIR}" -name "hermes-backup-*" -type f -mtime +"${RETENTION_DAYS}" -delete
