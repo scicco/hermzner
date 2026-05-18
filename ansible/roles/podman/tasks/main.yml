@@ -1,0 +1,55 @@
+---
+- name: Install podman and dependencies
+  apt:
+    name:
+      - podman
+      - fuse-overlayfs
+      - crun
+    state: present
+    update_cache: true
+
+- name: Install podman-compose (compose mode only)
+  apt:
+    name: podman-compose
+    state: present
+  when: hermes_runtime_backend == "compose"
+
+- name: Create hermes user
+  user:
+    name: "{{ hermes_user }}"
+    state: present
+    create_home: true
+    shell: /bin/bash
+
+- name: Configure subordinate UID ranges
+  lineinfile:
+    path: /etc/subuid
+    regexp: "^{{ hermes_user }}:"
+    line: "{{ hermes_user }}:100000:65536"
+    create: true
+    mode: "0644"
+
+- name: Configure subordinate GID ranges
+  lineinfile:
+    path: /etc/subgid
+    regexp: "^{{ hermes_user }}:"
+    line: "{{ hermes_user }}:100000:65536"
+    create: true
+    mode: "0644"
+
+- name: Enable linger for hermes user
+  command:
+    cmd: loginctl enable-linger {{ hermes_user }}
+  changed_when: false
+
+- name: Validate rootless podman
+  command:
+    cmd: sudo -u {{ hermes_user }} podman info
+  register: podman_info
+  changed_when: false
+
+- name: Fail if rootless podman is not working
+  assert:
+    that:
+      - podman_info.rc == 0
+    fail_msg: "Rootless podman validation failed for user {{ hermes_user }}"
