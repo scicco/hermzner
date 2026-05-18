@@ -43,6 +43,8 @@ HCLOUD_TOKEN=your_token TAILSCALE_AUTH_KEY=tskey-auth-... ./deploy.sh
 - API key auto-generated, .env at 0600
 - Image digest pinning required (fail-closed if missing)
 
+See [`SECURITY.md`](./SECURITY.md) for the full security model, threat model, and design rationale.
+
 ## Post-Deployment
 
 ```bash
