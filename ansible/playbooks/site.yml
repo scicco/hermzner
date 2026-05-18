@@ -36,6 +36,12 @@
           - public_ssh_policy in ['restricted', 'disabled_after_tailscale', 'open_key_only']
         fail_msg: "public_ssh_policy must be one of: restricted, disabled_after_tailscale, open_key_only"
 
+    - name: Validate hermes_bind_mode
+      assert:
+        that:
+          - hermes_bind_mode == 'localhost'
+        fail_msg: "hermes_bind_mode must be 'localhost'"
+
     - name: Validate podman_volume_label_suffix
       assert:
         that:

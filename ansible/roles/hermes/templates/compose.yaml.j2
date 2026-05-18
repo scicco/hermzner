@@ -25,6 +25,6 @@ services:
       API_SERVER_CORS_ORIGINS: "{{ api_server_cors_origins }}"
       HERMES_DASHBOARD: "{{ '1' if hermes_dashboard_enabled else '0' }}"
     env_file:
-      - {{ hermes_data_dir }}/.env
+      - "{{ hermes_data_dir }}/.env"
     volumes:
-      - {{ hermes_data_dir }}:/opt/data{{ podman_volume_label_suffix }}
+      - "{{ hermes_data_dir }}:/opt/data{{ podman_volume_label_suffix }}"

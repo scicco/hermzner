@@ -38,8 +38,11 @@
         rule: allow
         port: "22"
         proto: tcp
-        from_ip: "{{ ansible_host }}"
-      when: public_ssh_policy == "restricted"
+        from_ip: "{{ deployer_ip }}"
+      when:
+        - public_ssh_policy == "restricted"
+        - deployer_ip is defined
+        - deployer_ip | length > 0
 
     - name: Do not add public SSH allow rule (disabled_after_tailscale)
       debug:
@@ -100,6 +103,7 @@
   lineinfile:
     path: "{{ hermes_home }}/.bashrc"
     line: "umask 077"
+    regexp: "^umask "
     create: true
     owner: "{{ hermes_user }}"
     mode: "0644"

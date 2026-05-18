@@ -9,6 +9,7 @@
       command: podman inspect hermes
       register: inspect
       changed_when: false
+      failed_when: false
 
     - name: Container must not be privileged
       assert:
@@ -66,7 +67,8 @@
       assert:
         that:
           - "'hermes' in top_info.stdout"
-        fail_msg: "Container is running as root"
+          - "'root' not in top_info.stdout.split()"
+        fail_msg: "Container is running as root or has root processes"
 
     - name: Check data directory permissions
       stat:
@@ -91,13 +93,15 @@
         fail_msg: ".env file permissions are not 0600"
 
     - name: Check container health
-      command: curl -sf http://127.0.0.1:8642/health
+      command: curl -sf "{{ hermes_healthcheck_url }}"
       register: health
       changed_when: false
       failed_when: false
+      when: hermes_healthcheck_enabled | bool
 
     - name: Health endpoint must respond
       assert:
         that:
           - health.rc == 0
-        fail_msg: "Health endpoint is not responding on port 8642"
+        fail_msg: "Health endpoint is not responding at {{ hermes_healthcheck_url }}"
+      when: hermes_healthcheck_enabled | bool

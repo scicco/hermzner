@@ -28,6 +28,13 @@ SSH_KEY="${PRIVATE_SSH_KEY:-$HOME/.ssh/id_ed25519}"
 
 ALLOW_UNPINNED="${ALLOW_UNPINNED_IMAGE:-false}"
 
+# Phase 1b: Detect deployer IP for UFW restricted mode
+DEPLOYER_IP=$(curl -sf --max-time 5 https://ifconfig.me 2>/dev/null || echo "")
+if [ -z "$DEPLOYER_IP" ]; then
+  warn "Could not detect deployer IP. UFW restricted mode will not add a source-IP allow rule."
+  warn "SSH via Tailscale will still work."
+fi
+
 # Phase 2: Terraform apply
 info "Applying Terraform..."
 export TF_VAR_hcloud_token="${HCLOUD_TOKEN}"
@@ -67,14 +74,15 @@ for i in $(seq 1 $RETRIES); do
   DELAY=$((DELAY * 2))
   [ "$DELAY" -gt 60 ] && DELAY=60
 done
+sort -u -o ~/.ssh/known_hosts ~/.ssh/known_hosts 2>/dev/null || true
 
 # Phase 5: Run Ansible site
 info "Running Ansible site playbook..."
 ansible-playbook ansible/playbooks/site.yml \
-  --extra-vars "tailscale_auth_key=${TAILSCALE_AUTH_KEY} allow_unpinned_image=${ALLOW_UNPINNED}"
+  --extra-vars "tailscale_auth_key=${TAILSCALE_AUTH_KEY} allow_unpinned_image=${ALLOW_UNPINNED} deployer_ip=${DEPLOYER_IP:-''}"
 
 # Phase 6: Verify (only if runtime was started)
-if grep -q "hermes_start_runtime: true" ansible/group_vars/all.yml 2>/dev/null; then
+if grep -q "^hermes_start_runtime: true" ansible/group_vars/all.yml 2>/dev/null; then
   info "Running verification playbook..."
   ansible-playbook ansible/playbooks/verify.yml
 else
@@ -87,7 +95,12 @@ else
 fi
 
 # Phase 7: Summary
-TAILSCALE_IP=$(ssh -o ConnectTimeout=5 root@"${SERVER_IP}" tailscale ip -4 2>/dev/null || echo "(unknown)")
+TAILSCALE_IP=$(ssh -o ConnectTimeout=5 root@"${SERVER_IP}" tailscale ip -4 2>/dev/null || echo "")
+if [ -z "$TAILSCALE_IP" ]; then
+  TAILSCALE_IP="(unknown)"
+  warn "Could not determine Tailscale IP. The server may still be authenticating."
+fi
+unset TF_VAR_hcloud_token
 info "Deployment complete!"
 echo ""
 echo "  Server IP:     ${SERVER_IP}"

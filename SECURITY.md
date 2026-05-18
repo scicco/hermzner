@@ -72,7 +72,7 @@ These ports are unreachable from the network — they can only be accessed throu
 hermes_image_ref: docker.io/nousresearch/hermes-agent@sha256:<digest>
 ```
 
-The `allow_unpinned_image: false` default means any floating tag (`:latest`, `:stable`) triggers a preflight failure — even a non-empty reference without `@sha256:` is rejected. This is checked before any role executes.
+The `allow_unpinned_image` default is `false` (set by `deploy.sh` from `ALLOW_UNPINNED_IMAGE` env var). Any floating tag (`:latest`, `:stable`) triggers a preflight failure — even a non-empty reference without `@sha256:` is rejected. This is checked before any role executes.
 
 ### The verification playbook runs 11 checks, fail-closed
 

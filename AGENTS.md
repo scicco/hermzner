@@ -14,7 +14,7 @@ ansible/           → 5 roles + 2 playbooks + group_vars
   roles/
     podman/        → Rootless Podman, hermes user, subuid/subgid, linger
     tailscale/     → apt install, auth key, SSH enabled, IP registration
-    security/      → UFW, sysctl hardening, unattended-upgrades, SSH policy
+    security/      → UFW, sysctl hardening, unattended-upgrades, SSH policy, umask 077
     hermes/        → Quadlet (default) + Compose (fallback) templates, secrets
     backup/        → age-encrypted daily backups, 30-day retention
   playbooks/

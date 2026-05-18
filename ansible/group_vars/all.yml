@@ -20,6 +20,7 @@ hermes_pids_limit: 512
 
 # Networking
 public_ssh_policy: restricted
+hermes_bind_mode: localhost
 
 # Storage
 podman_volume_label_suffix: ""
