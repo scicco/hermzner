@@ -1,0 +1,34 @@
+[Unit]
+Description=Hermes Agent Container
+After=network-online.target
+Wants=network-online.target
+
+[Container]
+Image={{ hermes_image_ref }}
+ContainerName=hermes
+Exec=gateway run
+{% if hermes_dashboard_enabled %}
+Environment=HERMES_DASHBOARD=1
+{% endif %}
+Environment=API_SERVER_ENABLED=true
+Environment=API_SERVER_HOST=0.0.0.0
+Environment=API_SERVER_CORS_ORIGINS={{ api_server_cors_origins }}
+EnvironmentFile={{ hermes_data_dir }}/.env
+Volume={{ hermes_data_dir }}:/opt/data{{ podman_volume_label_suffix }}
+PublishPort=127.0.0.1:8642:8642
+PublishPort=127.0.0.1:9119:9119
+ReadOnly=true
+DropCapability=ALL
+NoNewPrivileges=true
+Tmpfs=/tmp:rw,noexec,nosuid,nodev,size=512m
+Tmpfs=/run:rw,noexec,nosuid,nodev,size=64m
+PidsLimit={{ hermes_pids_limit }}
+MemoryMax={{ hermes_memory_limit }}
+CPUQuota={{ (hermes_cpu_limit | float * 100) | int }}%
+
+[Install]
+WantedBy=default.target
+
+[Service]
+Restart=on-failure
+RestartSec=10

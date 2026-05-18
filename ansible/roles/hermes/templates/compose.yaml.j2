@@ -1,0 +1,30 @@
+services:
+  hermes:
+    image: "{{ hermes_image_ref }}"
+    container_name: hermes
+    restart: unless-stopped
+    command: ["gateway", "run"]
+    userns_mode: "keep-id"
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=512m
+      - /run:rw,noexec,nosuid,nodev,size=64m
+    pids_limit: "{{ hermes_pids_limit }}"
+    mem_limit: "{{ hermes_memory_limit }}"
+    cpus: "{{ hermes_cpu_limit }}"
+    ports:
+      - "127.0.0.1:8642:8642"
+      - "127.0.0.1:9119:9119"
+    environment:
+      API_SERVER_ENABLED: "true"
+      API_SERVER_HOST: "0.0.0.0"
+      API_SERVER_CORS_ORIGINS: "{{ api_server_cors_origins }}"
+      HERMES_DASHBOARD: "{{ '1' if hermes_dashboard_enabled else '0' }}"
+    env_file:
+      - {{ hermes_data_dir }}/.env
+    volumes:
+      - {{ hermes_data_dir }}:/opt/data{{ podman_volume_label_suffix }}
