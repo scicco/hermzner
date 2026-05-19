@@ -1,9 +1,20 @@
+# Terraform
 .terraform/
 *.tfstate
-*.tfstate.backup
+*.tfstate.*
 *.tfvars
 !terraform.tfvars.example
+
+# Generated Ansible inventory
 ansible/inventory/hosts.yml
+
+# Local OS/editor files
 .DS_Store
+*.swp
+*.swo
+*~
+
+# Local reports/logs
 scripts/repo_check.sh
 hermzner-local-check-report.txt
+*.log
