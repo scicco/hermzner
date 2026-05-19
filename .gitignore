@@ -17,3 +17,5 @@ ansible/inventory/hosts.yml
 # Local reports/logs
 hermzner-local-check-report.txt
 *.log
+
+*.png

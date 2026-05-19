@@ -1,3 +1,5 @@
+![Hermzner logo](hermzner_logo_256.png)
+
 # Hermzner
 
 Provision a hardened Hermes Agent on Hetzner with rootless Podman and Tailscale.
@@ -46,13 +48,13 @@ vim terraform/terraform.tfvars
 
 ## What Gets Deployed
 
-| Component | Detail |
-|-----------|--------|
-| VPS | Hetzner cx23, Ubuntu 24.04 |
-| Container Runtime | Rootless Podman (Quadlet default, Compose fallback) |
-| Network | Tailscale SSH + subnet access |
-| Service | Hermes Agent (gateway, API, optional dashboard) |
-| Backups | Daily local backups to /home/hermes/backups/; optionally encrypted with age |
+| Component         | Detail                                                                      |
+| ----------------- | --------------------------------------------------------------------------- |
+| VPS               | Hetzner cx23, Ubuntu 24.04                                                  |
+| Container Runtime | Rootless Podman (Quadlet default, Compose fallback)                         |
+| Network           | Tailscale SSH + subnet access                                               |
+| Service           | Hermes Agent (gateway, API, optional dashboard)                             |
+| Backups           | Daily local backups to /home/hermes/backups/; optionally encrypted with age |
 
 ## Security Controls
 
