@@ -12,14 +12,17 @@ Environment=HERMES_DASHBOARD=1
 {% endif %}
 Environment=API_SERVER_ENABLED=true
 Environment=API_SERVER_HOST=0.0.0.0
-Environment=API_SERVER_CORS_ORIGINS={{ api_server_cors_origins }}
+Environment=API_SERVER_CORS_ORIGINS={{ api_server_cors_origins | quote }}
 EnvironmentFile={{ hermes_data_dir }}/.env
 Volume={{ hermes_data_dir }}:/opt/data{{ podman_volume_label_suffix }}
 PublishPort=127.0.0.1:8642:8642
+{% if hermes_dashboard_enabled %}
 PublishPort=127.0.0.1:9119:9119
+{% endif %}
 ReadOnly=true
 DropCapability=ALL
 NoNewPrivileges=true
+SecurityOpt=seccomp=default
 Tmpfs=/tmp:rw,noexec,nosuid,nodev,size=512m
 Tmpfs=/run:rw,noexec,nosuid,nodev,size=64m
 PidsLimit={{ hermes_pids_limit }}

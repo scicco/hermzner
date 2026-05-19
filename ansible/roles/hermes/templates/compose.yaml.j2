@@ -9,6 +9,7 @@ services:
       - ALL
     security_opt:
       - no-new-privileges
+      - seccomp=default
     read_only: true
     tmpfs:
       - /tmp:rw,noexec,nosuid,nodev,size=512m

@@ -19,9 +19,9 @@
 - name: Generate API key if not present
   shell:
     cmd: |
-      if [ ! -f {{ hermes_data_dir }}/.env ] || ! grep -q '^API_SERVER_KEY=' {{ hermes_data_dir }}/.env 2>/dev/null; then
+      if [ ! -f {{ hermes_data_dir | quote }}/.env ] || ! grep -q '^API_SERVER_KEY=' {{ hermes_data_dir | quote }}/.env 2>/dev/null; then
         API_KEY=$(openssl rand -hex 32)
-        echo "API_SERVER_KEY=${API_KEY}" > {{ hermes_data_dir }}/.env
+        echo "API_SERVER_KEY=${API_KEY}" > {{ hermes_data_dir | quote }}/.env
       fi
   no_log: true
 
