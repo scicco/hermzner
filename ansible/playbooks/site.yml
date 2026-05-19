@@ -22,7 +22,8 @@
       assert:
         that:
           - api_server_cors_origins != "*"
-        fail_msg: "api_server_cors_origins must not be wildcard"
+          - "'example' not in api_server_cors_origins"
+        fail_msg: "api_server_cors_origins must not be wildcard or contain placeholder values"
 
     - name: Validate hermes_runtime_backend
       assert:

@@ -9,6 +9,13 @@ ARCHIVE="${BACKUP_DIR}/hermes-backup-${TIMESTAMP}.tar.gz"
 ENCRYPTED="${ARCHIVE}.age"
 AGE_RECIPIENT="{{ backup_age_recipient }}"
 
+if [ "${BACKUP_DIR}" = "/" ] || [ -z "${BACKUP_DIR}" ]; then
+  echo "ERROR: BACKUP_DIR is invalid" >&2
+  exit 1
+fi
+
+[ -d "${DATA_DIR}" ] || { echo "ERROR: DATA_DIR does not exist" >&2; exit 1; }
+
 mkdir -p "${BACKUP_DIR}"
 
 tar czf "${ARCHIVE}" -C "$(dirname "${DATA_DIR}")" "$(basename "${DATA_DIR}")"

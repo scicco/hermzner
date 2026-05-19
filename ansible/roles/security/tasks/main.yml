@@ -108,6 +108,12 @@
     owner: "{{ hermes_user }}"
     mode: "0644"
 
+- name: Set system-wide umask
+  copy:
+    content: "umask 077\n"
+    dest: /etc/profile.d/umask.sh
+    mode: "0644"
+
 - name: Harden sysctl
   sysctl:
     name: "{{ item.key }}"

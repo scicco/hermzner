@@ -47,4 +47,4 @@ hermes_healthcheck_enabled: true
 hermes_healthcheck_url: "http://127.0.0.1:8642/health"
 
 # API
-api_server_cors_origins: "https://trusted.example.org"
+api_server_cors_origins: ""
