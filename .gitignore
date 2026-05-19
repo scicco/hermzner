@@ -5,3 +5,5 @@
 !terraform.tfvars.example
 ansible/inventory/hosts.yml
 .DS_Store
+scripts/repo_check.sh
+hermzner-local-check-report.txt
