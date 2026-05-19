@@ -81,7 +81,7 @@
       lineinfile:
         path: /etc/ssh/sshd_config
         regexp: "^#?AllowUsers"
-        line: "AllowUsers {{ hermes_user }} root"
+        line: "AllowUsers {{ hermes_user }}"
       notify: restart sshd
 
     - name: Set SSH MaxAuthTries

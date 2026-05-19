@@ -26,7 +26,12 @@
 
 - name: Authenticate and start tailscale
   command:
-    cmd: tailscale up --ssh --auth-key {{ tailscale_auth_key }}
+    argv:
+      - tailscale
+      - up
+      - --ssh
+      - --auth-key
+      - "{{ tailscale_auth_key }}"
   no_log: true
   changed_when: false
 

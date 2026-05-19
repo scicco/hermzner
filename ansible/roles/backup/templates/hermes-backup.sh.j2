@@ -21,15 +21,22 @@ mkdir -p "${BACKUP_DIR}"
 tar czf "${ARCHIVE}" -C "$(dirname "${DATA_DIR}")" "$(basename "${DATA_DIR}")"
 
 {% if backup_encryption_enabled %}
-if command -v age &> /dev/null && [ -n "${AGE_RECIPIENT}" ]; then
-  age -r "${AGE_RECIPIENT}" -o "${ENCRYPTED}" "${ARCHIVE}"
+if ! command -v age >/dev/null 2>&1; then
+  echo "ERROR: backup encryption enabled but age is not installed" >&2
   rm -f "${ARCHIVE}"
-  chmod 0600 "${ENCRYPTED}"
-  echo "Encrypted backup: ${ENCRYPTED}"
-else
-  echo "WARNING: Encryption enabled but age not available. Storing unencrypted."
-  chmod 0600 "${ARCHIVE}"
+  exit 1
 fi
+
+if [ -z "${AGE_RECIPIENT}" ]; then
+  echo "ERROR: backup encryption enabled but AGE_RECIPIENT is empty" >&2
+  rm -f "${ARCHIVE}"
+  exit 1
+fi
+
+age -r "${AGE_RECIPIENT}" -o "${ENCRYPTED}" "${ARCHIVE}"
+chmod 0600 "${ENCRYPTED}"
+rm -f "${ARCHIVE}"
+echo "Encrypted backup: ${ENCRYPTED}"
 {% else %}
 chmod 0600 "${ARCHIVE}"
 echo "Backup: ${ARCHIVE}"

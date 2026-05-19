@@ -4,3 +4,5 @@
   become_user: "{{ hermes_user }}"
   command:
     cmd: systemctl --user daemon-reload
+  environment:
+    XDG_RUNTIME_DIR: "/run/user/{{ (lookup('pipe', 'id -u ' + hermes_user)) }}"

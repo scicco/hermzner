@@ -32,7 +32,7 @@ HCLOUD_TOKEN=your_token TAILSCALE_AUTH_KEY=tskey-auth-... ./deploy.sh
 | Container Runtime | Rootless Podman (Quadlet default, Compose fallback) |
 | Network | Tailscale SSH + subnet access |
 | Service | Hermes Agent (gateway, API, optional dashboard) |
-| Backups | Daily encrypted (via age) to /home/hermes/backups/ |
+| Backups | Daily local backups to /home/hermes/backups/; optionally encrypted with age |
 
 ## Security Controls
 

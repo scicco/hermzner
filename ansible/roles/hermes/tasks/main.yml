@@ -19,9 +19,10 @@
 - name: Generate API key if not present
   shell:
     cmd: |
-      if [ ! -f {{ hermes_data_dir | quote }}/.env ] || ! grep -q '^API_SERVER_KEY=' {{ hermes_data_dir | quote }}/.env 2>/dev/null; then
+      touch {{ hermes_data_dir | quote }}/.env
+      if ! grep -q '^API_SERVER_KEY=' {{ hermes_data_dir | quote }}/.env 2>/dev/null; then
         API_KEY=$(openssl rand -hex 32)
-        echo "API_SERVER_KEY=${API_KEY}" > {{ hermes_data_dir | quote }}/.env
+        printf '\nAPI_SERVER_KEY=%s\n' "${API_KEY}" >> {{ hermes_data_dir | quote }}/.env
       fi
   no_log: true
 
@@ -60,6 +61,8 @@
     state: started
     enabled: true
     daemon_reload: true
+  environment:
+    XDG_RUNTIME_DIR: "/run/user/{{ (lookup('pipe', 'id -u ' + hermes_user)) }}"
   when:
     - hermes_runtime_backend == "quadlet"
     - hermes_start_runtime | bool

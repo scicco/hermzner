@@ -7,6 +7,8 @@
   tasks:
     - name: Check if container is running
       command: podman inspect hermes
+      become: true
+      become_user: "{{ hermes_user }}"
       register: inspect
       changed_when: false
       failed_when: false
@@ -55,6 +57,8 @@
 
         - name: Check port binding
           command: podman port hermes
+          become: true
+          become_user: "{{ hermes_user }}"
           register: port_info
           changed_when: false
 
@@ -66,6 +70,8 @@
 
         - name: Check running user
           command: podman top hermes user huser
+          become: true
+          become_user: "{{ hermes_user }}"
           register: top_info
           changed_when: false
 

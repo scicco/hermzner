@@ -4,3 +4,4 @@
 *.tfvars
 !terraform.tfvars.example
 ansible/inventory/hosts.yml
+.DS_Store
