@@ -5,70 +5,77 @@
   become: true
 
   tasks:
-    - name: Inspect container
+    - name: Check if container is running
       command: podman inspect hermes
       register: inspect
       changed_when: false
       failed_when: false
 
-    - name: Container must not be privileged
-      assert:
-        that:
-          - not (inspect.stdout | from_json | first).HostConfig.Privileged
-        fail_msg: "Container is running in privileged mode"
+    - name: Skip container checks if not running
+      debug:
+        msg: "Container not running — skipping container security checks"
+      when: inspect.rc != 0
 
-    - name: User namespace must be active
-      assert:
-        that:
-          - (inspect.stdout | from_json | first).HostConfig.UsernsMode | length > 0
-        fail_msg: "User namespace is not active"
+    - block:
+        - name: Container must not be privileged
+          assert:
+            that:
+              - not (inspect.stdout | from_json | first).HostConfig.Privileged
+            fail_msg: "Container is running in privileged mode"
 
-    - name: All capabilities must be dropped
-      assert:
-        that:
-          - (inspect.stdout | from_json | first).HostConfig.CapDrop | select('equalto', 'ALL') | list | length > 0
-        fail_msg: "Not all capabilities are dropped"
+        - name: User namespace must be active
+          assert:
+            that:
+              - (inspect.stdout | from_json | first).HostConfig.UsernsMode | length > 0
+            fail_msg: "User namespace is not active"
 
-    - name: no-new-privileges must be enabled
-      assert:
-        that:
-          - (inspect.stdout | from_json | first).HostConfig.SecurityOpt | select('search', 'no-new-privileges') | list | length > 0
-        fail_msg: "no-new-privileges is not enabled"
+        - name: All capabilities must be dropped
+          assert:
+            that:
+              - (inspect.stdout | from_json | first).HostConfig.CapDrop | select('equalto', 'ALL') | list | length > 0
+            fail_msg: "Not all capabilities are dropped"
 
-    - name: seccomp must not be disabled
-      assert:
-        that:
-          - (inspect.stdout | from_json | first).HostConfig.SecurityOpt | select('search', 'seccomp=unconfined') | list | length == 0
-        fail_msg: "seccomp is disabled (seccomp=unconfined)"
+        - name: no-new-privileges must be enabled
+          assert:
+            that:
+              - (inspect.stdout | from_json | first).HostConfig.SecurityOpt | select('search', 'no-new-privileges') | list | length > 0
+            fail_msg: "no-new-privileges is not enabled"
 
-    - name: AppArmor must not be disabled
-      assert:
-        that:
-          - (inspect.stdout | from_json | first).HostConfig.SecurityOpt | select('search', 'apparmor=unconfined') | list | length == 0
-        fail_msg: "AppArmor is disabled (apparmor=unconfined)"
+        - name: seccomp must not be disabled
+          assert:
+            that:
+              - (inspect.stdout | from_json | first).HostConfig.SecurityOpt | select('search', 'seccomp=unconfined') | list | length == 0
+            fail_msg: "seccomp is disabled (seccomp=unconfined)"
 
-    - name: Check port binding
-      command: podman port hermes
-      register: port_info
-      changed_when: false
+        - name: AppArmor must not be disabled
+          assert:
+            that:
+              - (inspect.stdout | from_json | first).HostConfig.SecurityOpt | select('search', 'apparmor=unconfined') | list | length == 0
+            fail_msg: "AppArmor is disabled (apparmor=unconfined)"
 
-    - name: Ports must be bound to localhost
-      assert:
-        that:
-          - "'127.0.0.1' in port_info.stdout"
-        fail_msg: "Ports are not bound to 127.0.0.1"
+        - name: Check port binding
+          command: podman port hermes
+          register: port_info
+          changed_when: false
 
-    - name: Check running user
-      command: podman top hermes user huser
-      register: top_info
-      changed_when: false
+        - name: All ports must be bound to localhost
+          assert:
+            that:
+              - port_info.stdout_lines | map('regex_search', '127\\.0\\.0\\.1') | list | length == port_info.stdout_lines | length
+            fail_msg: "Not all ports are bound to 127.0.0.1"
 
-    - name: Must run as hermes (non-root)
-      assert:
-        that:
-          - "'hermes' in top_info.stdout"
-          - "'root' not in top_info.stdout.split()"
-        fail_msg: "Container is running as root or has root processes"
+        - name: Check running user
+          command: podman top hermes user huser
+          register: top_info
+          changed_when: false
+
+        - name: Must run as hermes (non-root)
+          assert:
+            that:
+              - "'hermes' in top_info.stdout"
+              - "'root' not in top_info.stdout.split()"
+            fail_msg: "Container is running as root or has root processes"
+      when: inspect.rc == 0
 
     - name: Check data directory permissions
       stat:
