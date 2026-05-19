@@ -5,4 +5,4 @@
   command:
     cmd: systemctl --user daemon-reload
   environment:
-    XDG_RUNTIME_DIR: "/run/user/{{ (lookup('pipe', 'id -u ' + hermes_user)) }}"
+    XDG_RUNTIME_DIR: "/run/user/{{ hermes_uid.stdout }}"

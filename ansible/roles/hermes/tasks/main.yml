@@ -52,6 +52,11 @@
     mode: "0600"
   when: hermes_runtime_backend == "compose"
 
+- name: Get hermes UID
+  command: "id -u {{ hermes_user }}"
+  register: hermes_uid
+  changed_when: false
+
 - name: Start runtime (quadlet mode)
   become: true
   become_user: "{{ hermes_user }}"
@@ -62,7 +67,7 @@
     enabled: true
     daemon_reload: true
   environment:
-    XDG_RUNTIME_DIR: "/run/user/{{ (lookup('pipe', 'id -u ' + hermes_user)) }}"
+    XDG_RUNTIME_DIR: "/run/user/{{ hermes_uid.stdout }}"
   when:
     - hermes_runtime_backend == "quadlet"
     - hermes_start_runtime | bool

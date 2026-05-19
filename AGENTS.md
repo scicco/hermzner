@@ -16,7 +16,7 @@ ansible/           → 5 roles + 2 playbooks + group_vars
     tailscale/     → apt install, auth key, SSH enabled, IP registration
     security/      → UFW, sysctl hardening, unattended-upgrades, SSH policy, umask 077, fail2ban, disable unused services, /dev/shm hardening
     hermes/        → Quadlet (default) + Compose (fallback) templates, secrets
-    backup/        → age-encrypted daily backups, 30-day retention
+    backup/        → daily local backups, optionally age-encrypted, 30-day retention
   playbooks/
     site.yml       → Preflight assertions → roles
     verify.yml     → 11 security invariants, fail-closed

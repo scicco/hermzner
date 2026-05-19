@@ -33,7 +33,11 @@ if [ -z "${AGE_RECIPIENT}" ]; then
   exit 1
 fi
 
-age -r "${AGE_RECIPIENT}" -o "${ENCRYPTED}" "${ARCHIVE}"
+if ! age -r "${AGE_RECIPIENT}" -o "${ENCRYPTED}" "${ARCHIVE}"; then
+  echo "ERROR: age encryption failed" >&2
+  rm -f "${ARCHIVE}" "${ENCRYPTED}"
+  exit 1
+fi
 chmod 0600 "${ENCRYPTED}"
 rm -f "${ARCHIVE}"
 echo "Encrypted backup: ${ENCRYPTED}"
