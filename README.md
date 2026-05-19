@@ -85,6 +85,24 @@ deploy.sh        # One-command deploy (auto-generates hosts.yml)
 teardown.sh      # Destroy everything
 ```
 
+## Development Tools
+
+### repo_check.sh
+
+`scripts/repo_check.sh` runs local security and consistency checks against the repo. It scans for:
+
+- Secret leakage (API keys, tokens in committed files)
+- Dangerous container flags (`--privileged`, host networking, etc.)
+- Image pinning and port binding enforcement
+- Shell / YAML / Ansible syntax errors
+- Optional Terraform validation
+
+```bash
+./scripts/repo_check.sh
+```
+
+Output is written to `hermzner-local-check-report.txt` (gitignored).
+
 ## Customization
 
 See `ansible/group_vars/all.yml` for all configurable options.
