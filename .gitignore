@@ -15,6 +15,5 @@ ansible/inventory/hosts.yml
 *~
 
 # Local reports/logs
-scripts/repo_check.sh
 hermzner-local-check-report.txt
 *.log
