@@ -20,8 +20,28 @@ vim terraform/terraform.tfvars
 vim ansible/group_vars/all.yml
 # Required: set hermes_image_ref to a pinned digest
 
+# 2b. For manual Ansible runs (without deploy.sh):
+cp ansible/inventory/hosts.yml.example ansible/inventory/hosts.yml
+# Edit ansible_host and ansible_ssh_private_key_file to match your server
+# (deploy.sh creates this file automatically — skip if using the one-command flow)
+
 # 3. Deploy
 HCLOUD_TOKEN=your_token TAILSCALE_AUTH_KEY=tskey-auth-... ./deploy.sh
+```
+
+## Smoke Test Deployment
+
+Use this procedure for a first disposable test deployment. The goal is to validate Terraform, Ansible, Tailscale access, rootless Podman, and the Hermes runtime wiring before using a pinned production image.
+
+> **Important:** Run this only against a disposable Hetzner VPS. The smoke test may use `ALLOW_UNPINNED_IMAGE=true` for convenience. Do not use this override for production.
+
+### 1. Prepare local variables
+
+Create and edit the Terraform variables file:
+
+```bash
+cp terraform/terraform.tfvars.example terraform/terraform.tfvars
+vim terraform/terraform.tfvars
 ```
 
 ## What Gets Deployed
@@ -59,7 +79,9 @@ ssh -L 9119:127.0.0.1:9119 hermes@<tailscale-ip>
 ```
 terraform/       # Hetzner VPS provisioning
 ansible/         # Server configuration (5 roles)
-deploy.sh        # One-command deploy
+  inventory/
+    hosts.yml.example  # Template — copy to hosts.yml for manual Ansible runs
+deploy.sh        # One-command deploy (auto-generates hosts.yml)
 teardown.sh      # Destroy everything
 ```
 
