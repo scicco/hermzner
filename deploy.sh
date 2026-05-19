@@ -29,7 +29,7 @@ SSH_KEY="${PRIVATE_SSH_KEY:-$HOME/.ssh/id_ed25519}"
 ALLOW_UNPINNED="${ALLOW_UNPINNED_IMAGE:-false}"
 
 # Phase 1b: Detect deployer IP for UFW restricted mode
-DEPLOYER_IP=$(curl -sf --max-time 5 https://ifconfig.me 2>/dev/null || echo "")
+DEPLOYER_IP=$(curl -sf --max-time 5 https://ifconfig.me 2>/dev/null || curl -sf --max-time 5 https://icanhazip.com 2>/dev/null || echo "")
 if [ -z "$DEPLOYER_IP" ]; then
   warn "Could not detect deployer IP. UFW restricted mode will not add a source-IP allow rule."
   warn "SSH via Tailscale will still work."
@@ -61,6 +61,7 @@ mkdir -p ~/.ssh
 RETRIES=10
 DELAY=5
 for i in $(seq 1 $RETRIES); do
+  ssh-keygen -R "${SERVER_IP}" 2>/dev/null || true
   ssh-keyscan -H "${SERVER_IP}" 2>/dev/null >> ~/.ssh/known_hosts
   if ssh -o ConnectTimeout=5 root@"${SERVER_IP}" id >/dev/null 2>&1; then
     info "SSH ready (attempt ${i})"
@@ -79,10 +80,10 @@ sort -u -o ~/.ssh/known_hosts ~/.ssh/known_hosts 2>/dev/null || true
 # Phase 5: Run Ansible site
 info "Running Ansible site playbook..."
 ansible-playbook ansible/playbooks/site.yml \
-  --extra-vars "tailscale_auth_key=${TAILSCALE_AUTH_KEY} allow_unpinned_image=${ALLOW_UNPINNED} deployer_ip=${DEPLOYER_IP:-''}"
+  --extra-vars "tailscale_auth_key=${TAILSCALE_AUTH_KEY} allow_unpinned_image=${ALLOW_UNPINNED} deployer_ip=${DEPLOYER_IP:-}"
 
 # Phase 6: Verify (only if runtime was started)
-if grep -q "^hermes_start_runtime: true" ansible/group_vars/all.yml 2>/dev/null; then
+if grep -q '^hermes_start_runtime:[[:space:]]*true' ansible/group_vars/all.yml 2>/dev/null; then
   info "Running verification playbook..."
   ansible-playbook ansible/playbooks/verify.yml
 else
@@ -105,7 +106,12 @@ info "Deployment complete!"
 echo ""
 echo "  Server IP:     ${SERVER_IP}"
 echo "  Tailscale IP:  ${TAILSCALE_IP}"
-echo "  SSH (pub):     ssh root@${SERVER_IP}"
+SSH_POLICY=$(grep '^public_ssh_policy:[[:space:]]*' ansible/group_vars/all.yml 2>/dev/null | sed 's/.*:[[:space:]]*//')
+if [ "$SSH_POLICY" = "disabled_after_tailscale" ]; then
+  echo "  SSH (pub):     (disabled — use Tailscale SSH only)"
+else
+  echo "  SSH (pub):     ssh root@${SERVER_IP}"
+fi
 echo "  SSH (ts):      ssh hermes@${TAILSCALE_IP}"
 echo ""
 echo "  -------- SSH Hardening --------"
