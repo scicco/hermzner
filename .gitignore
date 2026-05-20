@@ -4,6 +4,7 @@
 *.tfstate.*
 *.tfvars
 !terraform.tfvars.example
+terraform/.terraform.lock.hcl
 
 # Generated Ansible inventory
 ansible/inventory/hosts.yml
