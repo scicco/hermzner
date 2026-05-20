@@ -21,6 +21,9 @@ vim terraform/terraform.tfvars
 # 2. Copy and override Ansible defaults
 vim ansible/inventory/group_vars/all.yml
 # Required: set hermes_image_ref to a pinned digest
+#   Resolve the latest digest:
+#     curl -s "https://hub.docker.com/v2/repositories/nousresearch/hermes-agent/tags/main" | jq -r '.images[0].digest'
+#   Then set: hermes_image_ref: 'nousresearch/hermes-agent@sha256:<digest>'
 
 # 3. Deploy
 HCLOUD_TOKEN=your_token TAILSCALE_AUTH_KEY=tskey-auth-... ./deploy.sh
