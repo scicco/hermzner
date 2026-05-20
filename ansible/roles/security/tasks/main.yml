@@ -27,6 +27,7 @@
 - name: Allow SSH on tailscale interface
   ufw:
     rule: allow
+    direction: in
     interface: tailscale0
     port: "22"
     proto: tcp

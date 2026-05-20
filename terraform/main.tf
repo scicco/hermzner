@@ -35,17 +35,16 @@ resource "hcloud_server" "hermes" {
   image       = var.os_type
   ssh_keys    = [hcloud_ssh_key.deployer.id]
 
-  dynamic "firewall_ids" {
-    for_each = var.cloud_firewall_enabled ? [hcloud_firewall.provisioning[0].id] : []
-    content {
-      id = firewall_ids.value
-    }
-  }
-
   lifecycle {
     precondition {
       condition     = !var.cloud_firewall_enabled || var.deployer_ip != ""
       error_message = "deployer_ip must be set when cloud_firewall_enabled is true"
     }
   }
+}
+
+resource "hcloud_firewall_attachment" "hermes" {
+  count       = var.cloud_firewall_enabled ? 1 : 0
+  firewall_id = hcloud_firewall.provisioning[0].id
+  server_ids  = [hcloud_server.hermes.id]
 }

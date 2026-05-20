@@ -45,6 +45,7 @@
 - name: Validate rootless podman
   command:
     cmd: sudo -u {{ hermes_user }} podman info
+    chdir: "{{ hermes_home }}"
   register: podman_info
   changed_when: false
 
