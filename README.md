@@ -19,13 +19,8 @@ cp terraform/terraform.tfvars.example terraform/terraform.tfvars
 vim terraform/terraform.tfvars
 
 # 2. Copy and override Ansible defaults
-vim ansible/group_vars/all.yml
+vim ansible/inventory/group_vars/all.yml
 # Required: set hermes_image_ref to a pinned digest
-
-# 2b. For manual Ansible runs (without deploy.sh):
-cp ansible/inventory/hosts.yml.example ansible/inventory/hosts.yml
-# Edit ansible_host and ansible_ssh_private_key_file to match your server
-# (deploy.sh creates this file automatically — skip if using the one-command flow)
 
 # 3. Deploy
 HCLOUD_TOKEN=your_token TAILSCALE_AUTH_KEY=tskey-auth-... ./deploy.sh
@@ -82,7 +77,7 @@ ssh -L 9119:127.0.0.1:9119 hermes@<tailscale-ip>
 terraform/       # Hetzner VPS provisioning
 ansible/         # Server configuration (5 roles)
   inventory/
-    hosts.yml.example  # Template — copy to hosts.yml for manual Ansible runs
+    group_vars/        # Ansible group variables (all.yml)
 deploy.sh        # One-command deploy (auto-generates hosts.yml)
 teardown.sh      # Destroy everything
 ```
@@ -107,4 +102,4 @@ Output is written to `hermzner-local-check-report.txt` (gitignored).
 
 ## Customization
 
-See `ansible/group_vars/all.yml` for all configurable options.
+See `ansible/inventory/group_vars/all.yml` for all configurable options.

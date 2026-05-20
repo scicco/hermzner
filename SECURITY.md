@@ -92,9 +92,9 @@ The `allow_unpinned_image` default is `false` (set by `deploy.sh` from `ALLOW_UN
 
 If any check fails, the playbook exits non-zero. No partial pass.
 
-### Image pinning override comes from an environment variable, not group_vars
+### Image pinning override comes from an environment variable, not inventory/group_vars
 
-`allow_unpinned_image` is passed to Ansible via `ALLOW_UNPINNED_IMAGE` env var in `deploy.sh`, not from `group_vars/all.yml`. This means:
+`allow_unpinned_image` is passed to Ansible via `ALLOW_UNPINNED_IMAGE` env var in `deploy.sh`, not from `inventory/group_vars/all.yml`. This means:
 
 - Temporarily overriding digest pinning requires an explicit env var (`ALLOW_UNPINNED_IMAGE=true ./deploy.sh`), not an edit to a YAML config file
 - No risk of accidentally committing `allow_unpinned_image: true` to version control
@@ -142,7 +142,7 @@ These are intentional for the MVP but worth addressing in a production-hardened 
 
 1. **No Terraform remote state** — State is stored locally in `terraform.tfstate`. Team operations or machine loss would be destructive. A `backend "s3"` or similar should be configured for shared use.
 
-2. **No automated image digest updates** — Pinning to a digest means no automatic updates for the Hermes Agent image. Updates require manually changing `hermes_image_ref` in `group_vars/all.yml`.
+2. **No automated image digest updates** — Pinning to a digest means no automatic updates for the Hermes Agent image. Updates require manually changing `hermes_image_ref` in `inventory/group_vars/all.yml`.
 
 3. **`sshd_config` hardening opt-in** — Enabled via `sshd_hardening_enabled: true`. Defaults to `false` because Ubuntu 24.04's cloud-image defaults are already secure (`PasswordAuthentication no`, `PermitRootLogin prohibit-password`). Set to `true` when you want explicit settings regardless of base image defaults.
 

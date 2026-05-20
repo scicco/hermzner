@@ -10,7 +10,8 @@ Provision a hardened Hetzner VPS (Ubuntu 24.04) with rootless Podman and deploy 
 
 ```
 terraform/         → Hetzner VPS (main.tf, variables.tf, outputs.tf)
-ansible/           → 5 roles + 2 playbooks + group_vars
+ansible/           → 5 roles + 2 playbooks + inventory/group_vars
+  inventory/       → hosts.yml + group_vars/
   roles/
     podman/        → Rootless Podman, hermes user, subuid/subgid, linger
     tailscale/     → apt install, auth key, SSH enabled, IP registration
@@ -73,7 +74,7 @@ After deployment, 11 checks must all pass:
 ```bash
 cp terraform/terraform.tfvars.example terraform/terraform.tfvars
 # Edit: set ssh_public_key, overrides
-# Edit: set hermes_image_ref in ansible/group_vars/all.yml
+# Edit: set hermes_image_ref in ansible/inventory/group_vars/all.yml
 
 HCLOUD_TOKEN=xxx TAILSCALE_AUTH_KEY=tskey-auth-xxx ./deploy.sh
 
@@ -94,4 +95,4 @@ systemctl --user enable --now hermes.service
 - **Explicit SSH key path** — override via `PRIVATE_SSH_KEY` env var, defaults to `~/.ssh/id_ed25519`
 - **Host key verification** — `ssh-keyscan` saves to `known_hosts`; Ansible `host_key_checking` kept enabled
 - **Token handling** — `TF_VAR_hcloud_token` env var; no `.tfvars` file on disk
-- **Image pinning override** — `ALLOW_UNPINNED_IMAGE` env var (not `group_vars/all.yml`)
+- **Image pinning override** — `ALLOW_UNPINNED_IMAGE` env var (not `inventory/group_vars/all.yml`)

@@ -38,6 +38,7 @@ fi
 # Phase 2: Terraform apply
 info "Applying Terraform..."
 export TF_VAR_hcloud_token="${HCLOUD_TOKEN}"
+terraform -chdir=terraform init -upgrade
 terraform -chdir=terraform apply -auto-approve
 
 # Phase 3: Extract server IP
@@ -83,7 +84,7 @@ ansible-playbook ansible/playbooks/site.yml \
   --extra-vars "tailscale_auth_key=${TAILSCALE_AUTH_KEY} allow_unpinned_image=${ALLOW_UNPINNED} deployer_ip=${DEPLOYER_IP:-}"
 
 # Phase 6: Verify (only if runtime was started)
-if grep -q '^hermes_start_runtime:[[:space:]]*true' ansible/group_vars/all.yml 2>/dev/null; then
+if grep -q '^hermes_start_runtime:[[:space:]]*true' ansible/inventory/group_vars/all.yml 2>/dev/null; then
   info "Running verification playbook..."
   ansible-playbook ansible/playbooks/verify.yml
 else
@@ -106,7 +107,7 @@ info "Deployment complete!"
 echo ""
 echo "  Server IP:     ${SERVER_IP}"
 echo "  Tailscale IP:  ${TAILSCALE_IP}"
-SSH_POLICY=$(grep '^public_ssh_policy:[[:space:]]*' ansible/group_vars/all.yml 2>/dev/null | sed 's/.*:[[:space:]]*//')
+SSH_POLICY=$(grep '^public_ssh_policy:[[:space:]]*' ansible/inventory/group_vars/all.yml 2>/dev/null | sed 's/.*:[[:space:]]*//')
 if [ "$SSH_POLICY" = "disabled_after_tailscale" ]; then
   echo "  SSH (pub):     (disabled — use Tailscale SSH only)"
 else
@@ -116,7 +117,7 @@ echo "  SSH (ts):      ssh hermes@${TAILSCALE_IP}"
 echo ""
 echo "  -------- SSH Hardening --------"
 echo "  sshd_config hardening is DISABLED by default."
-echo "  To enable: set sshd_hardening_enabled: true in ansible/group_vars/all.yml"
+echo "  To enable: set sshd_hardening_enabled: true in ansible/inventory/group_vars/all.yml"
 echo "  Then run ./deploy.sh again — Ansible applies the changes idempotently."
 echo "  This disables password auth, restricts root login, and limits users/sessions."
 echo "  Without it, SSH security relies on network controls (UFW + Tailscale)."
