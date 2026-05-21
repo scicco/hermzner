@@ -175,10 +175,16 @@ run_grep \
   "ufw|firewall|tailscale0|22/tcp|sshd|PasswordAuthentication|PermitRootLogin|public_ssh_policy|fail2ban" \
   ansible terraform README.md SECURITY.md AGENTS.md COVENANT.md 2>/dev/null
 
-run_grep \
-  "12. Terraform token/state safety check" \
-  "hcloud_token|HCLOUD_TOKEN|TF_VAR_hcloud_token|terraform\.tfstate|sensitive|variable \"hcloud" \
-  terraform README.md SECURITY.md AGENTS.md .gitignore 2>/dev/null
+section "12. Terraform state tracking check"
+
+echo "+ git ls-files | grep tfstate" | tee -a "$REPORT"
+git ls-files | grep tfstate | tee -a "$REPORT"
+
+if git ls-files | grep -q tfstate; then
+  echo "❌ ERROR: tfstate files are tracked in git!" | tee -a "$REPORT"
+else
+  echo "✅ OK: no tfstate files tracked" | tee -a "$REPORT"
+fi
 
 run_grep \
   "13. Podman rootless setup checks" \

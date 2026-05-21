@@ -1,11 +1,32 @@
 ---
+- name: Add home:lfv Podman GPG key
+  apt_key:
+    url: https://download.opensuse.org/repositories/home:/lfv/xUbuntu_24.04/Release.key
+    state: present
+
+- name: Add home:lfv Podman repository
+  apt_repository:
+    repo: "deb https://download.opensuse.org/repositories/home:/lfv/xUbuntu_24.04/ /"
+    state: present
+    update_cache: false
+
+- name: Pin Podman to home:lfv repository
+  copy:
+    content: |
+      Package: podman
+      Pin: origin download.opensuse.org
+      Pin-Priority: 1001
+    dest: /etc/apt/preferences.d/podman-lfv
+    mode: "0644"
+
 - name: Install podman and dependencies
   apt:
     name:
       - podman
       - fuse-overlayfs
       - crun
-    state: present
+      - passt
+    state: latest
     update_cache: true
 
 - name: Install podman-compose (compose mode only)
@@ -41,6 +62,24 @@
   command:
     cmd: loginctl enable-linger {{ hermes_user }}
   changed_when: false
+
+- name: Ensure containers config directory exists
+  file:
+    path: "{{ hermes_home }}/.config/containers"
+    state: directory
+    owner: "{{ hermes_user }}"
+    group: "{{ hermes_user }}"
+    mode: "0700"
+
+- name: Configure runc as default runtime
+  copy:
+    content: |
+      [engine]
+      runtime = "/usr/bin/runc"
+    dest: "{{ hermes_home }}/.config/containers/containers.conf"
+    owner: "{{ hermes_user }}"
+    group: "{{ hermes_user }}"
+    mode: "0644"
 
 - name: Validate rootless podman
   command:

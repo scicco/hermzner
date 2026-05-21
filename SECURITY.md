@@ -1,6 +1,8 @@
 # Security Model
 
-This document describes the security architecture, threat model, and design rationale for the Hermzner provisioning pipeline. It exists to prevent the wrong assumptions that commonly arise when reviewing this project without reading every role and template.
+This document describes the security architecture, threat model, and design rationale for the Hermzner provisioning pipeline. It is intended to prevent incorrect assumptions when reviewing the system without full context.
+
+---
 
 ## Security Architecture
 
@@ -21,137 +23,214 @@ Deployer Machine                  Hetzner VPS (Ubuntu 24.04)
                                     │       └─ no-new-privileges       │
                                     │                                  │
                                     │  /home/hermes/.hermes/           │
-                                    │    ├─ .env          (0600)       │
-                                    │    └─ data           (0700)      │
+                                    │    ├─ .env (0600)                │
+                                    │    └─ data (0700)                │
                                     └──────────────────────────────────┘
 ```
 
+---
+
+## Trust Boundary
+
+The primary trust boundary of this system is **Tailscale identity**, not SSH.
+
+- SSH is treated as a transport layer
+- Access control is identity-based (Tailscale)
+- Services are not exposed publicly
+
+Implications:
+
+- Misconfigured SSH does not imply compromise
+- Network surface is minimal
+- Identity defines access
+
+---
+
+## Core Principles
+
+- Minimize exposed surface
+- Prefer identity-based access
+- Avoid fragile configuration (e.g. AllowUsers)
+- Fail safely and predictably
+- Guarantee recoverability
+
+---
+
 ## Key Design Decisions
 
-### Quadlet is the default backend, not Docker Compose
+### Quadlet as primary runtime
 
-The primary runtime path uses [Quadlet](https://docs.podman.io/en/latest/markdown/podman-systemd.unit.5.html) — Podman's native systemd unit generator — not Docker Compose. The Quadlet template (`ansible/roles/hermes/templates/hermes.container.j2`) produces a `.container` unit file that `systemctl --user` manages directly.
+- Native systemd integration
+- No Docker dependency
+- Deterministic lifecycle
 
-This means:
+---
 
-- No Docker dependency or YAML parsing ambiguity
-- Clean integration with `loginctl enable-linger` for auto-start at boot
-- Systemd handles restart policy, logging, and resource limits natively
+### Host key verification enabled
 
-A Compose fallback (`ansible/roles/hermes/templates/compose.yaml.j2`) exists for environments without systemd user sessions, selected via `hermes_runtime_backend: compose`.
+- known_hosts populated via ssh-keyscan
+- No disabling of host key checking
 
-### Host key verification is enabled
+---
 
-The `deploy.sh` orchestrator saves the server's SSH host key to `~/.ssh/known_hosts` using `ssh-keyscan -H` during the readiness loop. Ansible runs with `host_key_checking` enabled. Neither `deploy.sh` nor `ansible.cfg` sets `ANSIBLE_HOST_KEY_CHECKING=False`.
+### Secrets never logged
 
-The MITM window is limited to the first TCP connection during the readiness retry loop, which uses `ssh -o StrictHostKeyChecking=accept-new`.
+- Ansible `no_log: true`
+- Covers Tailscale key and API key
 
-### Secrets in sensitive tasks are suppressed
+---
 
-Ansible's `no_log: true` is applied to:
+### Localhost-only exposure
 
-- The Tailscale auth key (`tailscale up --ssh --auth-key <key>`)
-- The Hermes API key generation (`openssl rand -hex 32` → `.env`)
+All services bind to:
 
-Without this, Ansible would print both credentials to stdout on every run.
-
-### All ports are bound to 127.0.0.1
-
-Both the Quadlet and Compose templates bind Hermes ports to `127.0.0.1` only:
-
-- `8642` (Hermes API)
-- `9119` (Hermes dashboard)
-
-These ports are unreachable from the network — they can only be accessed through an SSH tunnel (`ssh -L 9119:127.0.0.1:9119 hermes@<tailscale-ip>`). Rootless Podman's user-mode networking (`slirp4netns`/`pasta`) operates in a separate namespace, and the `127.0.0.1` host binding means nothing on the network can reach these ports. UFW does not need to block them.
-
-### Image digest pinning is enforced, not hardcoded
-
-`hermes_image_ref: ""` defaults to **empty**. Deployment will fail until you set a pinned digest:
-
-```yaml
-hermes_image_ref: docker.io/nousresearch/hermes-agent@sha256:<digest>
+```
+127.0.0.1
 ```
 
-The `allow_unpinned_image` default is `false` (set by `deploy.sh` from `ALLOW_UNPINNED_IMAGE` env var). Any floating tag (`:latest`, `:stable`) triggers a preflight failure — even a non-empty reference without `@sha256:` is rejected. This is checked before any role executes.
+No direct network exposure.
 
-### The verification playbook runs 11 checks, fail-closed
+---
 
-`ansible/playbooks/verify.yml` validates:
+### Image digest pinning enforced
 
-1. Container is not privileged
-2. User namespace is active
-3. All capabilities are dropped
-4. `no-new-privileges` is enabled
-5. seccomp is not disabled
-6. AppArmor is not disabled
-7. Ports are bound to `127.0.0.1`
-8. Container processes run as the `hermes` user
-9. Data directory is `0700`
-10. `.env` file is `0600`
-11. Health endpoint responds on port `8642`
+- Requires `@sha256:` digest
+- Floating tags rejected
+- Override only via env variable
 
-If any check fails, the playbook exits non-zero. No partial pass.
+---
 
-### Image pinning override comes from an environment variable, not inventory/group_vars
+### Verification is fail-closed
 
-`allow_unpinned_image` is passed to Ansible via `ALLOW_UNPINNED_IMAGE` env var in `deploy.sh`, not from `inventory/group_vars/all.yml`. This means:
+Deployment fails if any check fails:
 
-- Temporarily overriding digest pinning requires an explicit env var (`ALLOW_UNPINNED_IMAGE=true ./deploy.sh`), not an edit to a YAML config file
-- No risk of accidentally committing `allow_unpinned_image: true` to version control
-- The override is session-scoped — it can't persist across runs
+- No privileged containers
+- Capabilities dropped
+- no-new-privileges
+- localhost binding
+- strict permissions
 
-### Tailscale auth keys should be ephemeral where possible
+---
 
-`deploy.sh` passes `TAILSCALE_AUTH_KEY` to Ansible as an `--extra-vars` argument. This is visible in the process table during Ansible execution. To minimize blast radius:
+## Access Control Model
 
-- **Prefer ephemeral auth keys** (`--ephemeral`) — they are discarded after the first use and cannot be re-used if leaked
-- **Tag reusable keys** with a clear purpose and set an expiry
-- **Restrict key scope** in the Tailscale admin console to the minimum set of tags and ACLs needed
+Primary access:
 
-### Firewall is interface-specific, not subnet-based
+```
+ssh root@<tailscale-ip>
+```
 
-UFW allows SSH on the `tailscale0` interface, not on the Tailscale CGNAT subnet (`100.x.y.z/10`). This means only traffic arriving through the `tailscale0` interface is permitted — if Tailscale is down, SSH over that path is unavailable (by design, for the `disabled_after_tailscale` policy).
+Public SSH is configurable:
+
+- disabled_after_tailscale
+- restricted
+- open_key_only
+
+---
+
+## SSH Hardening Philosophy
+
+- Minimal
+- Optional
+- Never breaks access
+
+Settings:
+
+- PasswordAuthentication no
+- PermitRootLogin prohibit-password
+- ChallengeResponseAuthentication no
+- MaxAuthTries 3
+- MaxSessions 5
+
+---
+
+## Network Security
+
+- UFW default deny
+- SSH via tailscale0 or restricted IP
+- No public service ports
+
+---
+
+## Container Security
+
+- Rootless Podman
+- No capabilities
+- Read-only filesystem
+- no-new-privileges
+- Resource limits
+
+---
+
+## Secrets Handling
+
+- Generated securely
+- Stored with 0600
+- Not logged
+
+---
+
+## Backup Security
+
+- Stored locally
+- 0600 permissions
+- Optional encryption (age)
+
+---
+
+## Recovery Model
+
+Recovery paths:
+
+1. Tailscale SSH
+2. Local recovery script
+3. Hetzner Rescue system
+4. Hetzner console
+
+Guarantees:
+
+- sshd config validated
+- rollback on failure
+- no permanent lockout
+
+---
 
 ## Threat Model
 
 ### In Scope
 
-| Threat                               | Mitigation                                                                                                                  |
-| ------------------------------------ | --------------------------------------------------------------------------------------------------------------------------- |
-| Compromised Hermes Agent             | Rootless container, all capabilities dropped, read-only rootfs, `no-new-privileges`, `pids_limit`/`mem_limit`/`cpus` limits |
-| Supply chain attack on Hermes image  | Digest pinning enforced at deploy time; `allow_unpinned_image: false` blocks floating tags                                  |
-| Network-level attack on Hermes ports | Ports bound to `127.0.0.1`, unreachable from the network; UFW default deny inbound                                          |
-| API key exposure                     | `openssl rand -hex 32` (256-bit), stored at `0600`, generated with `no_log: true`                                           |
-| Unauthorized SSH access              | UFW restricts to `tailscale0` interface or specific deployer IP; Tailscale SSH requires valid tailnet identity              |
-| Automated security updates           | `unattended-upgrades` enabled for OS packages                                                                               |
-| Brute-force container process limits | `pids_limit: 512`, `mem_limit: 2g`, `cpus: 2`                                                                               |
+- Container compromise
+- Supply chain attacks
+- Network exposure
+- SSH brute force
 
 ### Out of Scope
 
-| Threat                                | Rationale                                                                                                                                                                                                                    |
-| ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Compromised deployer machine          | If the machine running Terraform/Ansible is compromised, all secrets (`HCLOUD_TOKEN`, `TAILSCALE_AUTH_KEY`) and infrastructure are accessible. Mitigation requires hardware-backed secrets management (out of scope for MVP) |
-| Compromised Tailscale control plane   | Tailscale manages its own authentication and key distribution. Trusting Tailscale is a design choice, not a gap we mitigate server-side                                                                                      |
-| Denial of service against Hetzner API | Terraform uses Hetzner's public API. If it's unavailable, provisioning fails — no side-channel risk                                                                                                                          |
-| Physical access to Hetzner hardware   | Hetzner is responsible for physical security                                                                                                                                                                                 |
-| Container escape via kernel 0-days    | Rootless Podman reduces blast radius but doesn't prevent kernel-level escapes. Defense-in-depth through capability dropping, seccomp, AppArmor                                                                               |
+- Deployer compromise
+- Tailscale compromise
+- Kernel 0-days
+- Physical attacks
+
+---
+
+## Defense in Depth
+
+- UFW
+- Fail2Ban (optional)
+- sysctl hardening
+- disabled services
+
+---
 
 ## Known Gaps
 
-These are intentional for the MVP but worth addressing in a production-hardened iteration:
+- No Terraform remote state
+- No automatic image updates
+- SSH hardening optional
+- Env token visibility during deploy
 
-1. **No Terraform remote state** — State is stored locally in `terraform.tfstate`. Team operations or machine loss would be destructive. A `backend "s3"` or similar should be configured for shared use.
+---
 
-2. **No automated image digest updates** — Pinning to a digest means no automatic updates for the Hermes Agent image. Updates require manually changing `hermes_image_ref` in `inventory/group_vars/all.yml`.
+## Final Note
 
-3. **`sshd_config` hardening opt-in** — Enabled via `sshd_hardening_enabled: true`. Defaults to `false` because Ubuntu 24.04's cloud-image defaults are already secure (`PasswordAuthentication no`, `PermitRootLogin prohibit-password`). Set to `true` when you want explicit settings regardless of base image defaults.
-
-4. **`HCLOUD_TOKEN` passed via `TF_VAR_hcloud_token`** — The token is passed as an environment variable, not written to disk. However, it is visible in the `deploy.sh` process environment for the duration of the run.
-
-## Security Principles
-
-This project implements all 20 principles from [`COVENANT.md`](./COVENANT.md). See the principle coverage table in `docs/superpowers/specs/2026-05-18-hermes-podman-provisioning-design.md` for the full mapping from principle to implementation.
-
-## Reporting a Vulnerability
-
-This project provisions infrastructure for personal/learning use. If you find a vulnerability, open an issue on GitHub.
+Security is achieved through reduced exposure and guaranteed recovery, not complexity.

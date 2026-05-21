@@ -24,46 +24,71 @@
     - { dir: incoming, policy: deny }
     - { dir: outgoing, policy: allow }
 
-- name: Allow SSH on tailscale interface
-  ufw:
-    rule: allow
-    direction: in
-    interface: tailscale0
-    port: "22"
-    proto: tcp
-
-- name: Apply public SSH policy
+- name: Configure SSH firewall (disabled_after_tailscale)
   block:
-    - name: Allow SSH from deployer IP (restricted mode)
+    - name: Allow SSH on tailscale interface
+      ufw:
+        rule: allow
+        direction: in
+        interface: tailscale0
+        port: "22"
+        proto: tcp
+    - name: Deny SSH from everywhere else
+      ufw:
+        rule: deny
+        port: "22"
+        proto: tcp
+  when: public_ssh_policy == "disabled_after_tailscale"
+
+- name: Fail if restricted mode but no deployer_ip
+  fail:
+    msg: "deployer_ip is required when public_ssh_policy=restricted"
+  when:
+    - public_ssh_policy == "restricted"
+    - deployer_ip is not defined or deployer_ip | length == 0
+
+- name: Configure SSH firewall (restricted)
+  block:
+    - name: Allow SSH from deployer IP
       ufw:
         rule: allow
         port: "22"
         proto: tcp
         from_ip: "{{ deployer_ip }}"
-      when:
-        - public_ssh_policy == "restricted"
-        - deployer_ip is defined
-        - deployer_ip | length > 0
+  when:
+    - public_ssh_policy == "restricted"
+    - deployer_ip is defined
+    - deployer_ip | length > 0
 
-    - name: Do not add public SSH allow rule (disabled_after_tailscale)
-      debug:
-        msg: "Public SSH will be disabled after Tailscale is verified"
-      when: public_ssh_policy == "disabled_after_tailscale"
-
-    - name: Allow SSH from anywhere (open_key_only mode)
+- name: Configure SSH firewall (open_key_only)
+  block:
+    - name: Allow SSH from anywhere
       ufw:
         rule: allow
         port: "22"
         proto: tcp
-      when: public_ssh_policy == "open_key_only"
-  when: public_ssh_policy != "disabled_after_tailscale"
+  when: public_ssh_policy == "open_key_only"
 
 - name: Enable UFW
   ufw:
     state: enabled
 
+- name: Verify tailscale is online before hardening SSH
+  command: tailscale status --json
+  register: ts_json
+  failed_when: >
+    (ts_json.stdout is not defined) or
+    ((ts_json.stdout | from_json).Self.Online is not defined) or
+    (not (ts_json.stdout | from_json).Self.Online)
+  changed_when: false
+  when: sshd_hardening_enabled | bool
+
 - name: Configure sshd hardening
   block:
+    - name: Validate current sshd config before changes
+      command: sshd -t
+      changed_when: false
+
     - name: Disable password authentication
       lineinfile:
         path: /etc/ssh/sshd_config
@@ -78,11 +103,11 @@
         line: "PermitRootLogin prohibit-password"
       notify: restart sshd
 
-    - name: Restrict SSH to specific users
+    - name: Disable challenge-response auth
       lineinfile:
         path: /etc/ssh/sshd_config
-        regexp: "^#?AllowUsers"
-        line: "AllowUsers {{ hermes_user }}"
+        regexp: "^#?ChallengeResponseAuthentication"
+        line: "ChallengeResponseAuthentication no"
       notify: restart sshd
 
     - name: Set SSH MaxAuthTries
@@ -98,7 +123,18 @@
         regexp: "^#?MaxSessions"
         line: "MaxSessions 5"
       notify: restart sshd
+
+    - name: Validate sshd config after changes
+      command: sshd -t
+      changed_when: false
+      notify: restart sshd
   when: sshd_hardening_enabled | bool
+
+- name: Install SSH recovery script
+  copy:
+    src: revert-sshd-hardening.sh
+    dest: /root/revert-sshd-hardening.sh
+    mode: "0700"
 
 - name: Set hermes user umask
   lineinfile:

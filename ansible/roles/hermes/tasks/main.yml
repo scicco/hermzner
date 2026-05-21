@@ -92,7 +92,7 @@
 
       Then start:
       {% if hermes_runtime_backend == 'quadlet' %}
-      sudo -iu {{ hermes_user }} systemctl --user enable --now hermes.service
+       sudo -u {{ hermes_user }} XDG_RUNTIME_DIR=/run/user/$(id -u {{ hermes_user }}) systemctl --user enable --now hermes.service
       {% else %}
       podman-compose -f {{ hermes_compose_file }} up -d
       {% endif %}

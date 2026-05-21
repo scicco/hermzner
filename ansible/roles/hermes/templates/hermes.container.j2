@@ -21,13 +21,14 @@ PublishPort=127.0.0.1:9119:9119
 {% endif %}
 ReadOnly=true
 DropCapability=ALL
+UserNS=keep-id
+User=1000
 NoNewPrivileges=true
-SecurityOpt=seccomp=default
 Tmpfs=/tmp:rw,noexec,nosuid,nodev,size=512m
 Tmpfs=/run:rw,noexec,nosuid,nodev,size=64m
+Tmpfs=/.local:rw,noexec,nosuid,nodev,size=64m
 PidsLimit={{ hermes_pids_limit }}
-MemoryMax={{ hermes_memory_limit }}
-CPUQuota={{ (hermes_cpu_limit | float * 100) | int }}%
+Memory={{ hermes_memory_limit }}
 
 [Install]
 WantedBy=default.target
@@ -35,3 +36,4 @@ WantedBy=default.target
 [Service]
 Restart=on-failure
 RestartSec=10
+CPUQuota={{ (hermes_cpu_limit | float * 100) | int }}%

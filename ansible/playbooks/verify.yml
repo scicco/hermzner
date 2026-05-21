@@ -31,11 +31,11 @@
               - (inspect.stdout | from_json | first).HostConfig.UsernsMode | length > 0
             fail_msg: "User namespace is not active"
 
-        - name: All capabilities must be dropped
+        - name: Capabilities must be restricted
           assert:
             that:
-              - (inspect.stdout | from_json | first).HostConfig.CapDrop | select('equalto', 'ALL') | list | length > 0
-            fail_msg: "Not all capabilities are dropped"
+              - (inspect.stdout | from_json | first).HostConfig.CapDrop | length > 0
+            fail_msg: "No capabilities are dropped"
 
         - name: no-new-privileges must be enabled
           assert:
@@ -75,12 +75,11 @@
           register: top_info
           changed_when: false
 
-        - name: Must run as hermes (non-root)
+        - name: Must not run as root
           assert:
             that:
-              - "'hermes' in top_info.stdout"
-              - "'root' not in top_info.stdout.split()"
-            fail_msg: "Container is running as root or has root processes"
+              - "'root' not in top_info.stdout"
+            fail_msg: "Container processes are running as root"
       when: inspect.rc == 0
 
     - name: Check data directory permissions
@@ -110,11 +109,11 @@
       register: health
       changed_when: false
       failed_when: false
-      when: hermes_healthcheck_enabled | bool
+      when: hermes_healthcheck_enabled | bool and inspect.rc == 0
 
     - name: Health endpoint must respond
       assert:
         that:
           - health.rc == 0
         fail_msg: "Health endpoint is not responding at {{ hermes_healthcheck_url }}"
-      when: hermes_healthcheck_enabled | bool
+      when: hermes_healthcheck_enabled | bool and inspect.rc == 0

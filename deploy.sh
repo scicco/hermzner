@@ -39,6 +39,17 @@ fi
 info "Applying Terraform..."
 export TF_VAR_hcloud_token="${HCLOUD_TOKEN}"
 terraform -chdir=terraform init -upgrade
+
+# Import existing SSH key if stale from manual server deletion
+STALE_KEY_NAME="${TF_VAR_server_name:-hermes}-deployer"
+STALE_KEY_ID=$(curl -sf -H "Authorization: Bearer ${HCLOUD_TOKEN}" \
+  "https://api.hetzner.cloud/v1/ssh_keys?name=${STALE_KEY_NAME}" 2>/dev/null | \
+  python3 -c "import sys,json; d=json.load(sys.stdin); print(d['ssh_keys'][0]['id']) if d.get('ssh_keys') else None" 2>/dev/null || echo "")
+if [ -n "$STALE_KEY_ID" ]; then
+  info "Importing existing SSH key (ID: ${STALE_KEY_ID}) into Terraform state..."
+  terraform -chdir=terraform import hcloud_ssh_key.deployer "$STALE_KEY_ID" 2>/dev/null || true
+fi
+
 terraform -chdir=terraform apply -auto-approve
 
 # Phase 3: Extract server IP
@@ -84,40 +95,59 @@ ansible-playbook ansible/playbooks/site.yml \
   --extra-vars "tailscale_auth_key=${TAILSCALE_AUTH_KEY} allow_unpinned_image=${ALLOW_UNPINNED} deployer_ip=${DEPLOYER_IP:-}"
 
 # Phase 6: Verify (only if runtime was started)
+TAILSCALE_IP=$(ssh -o ConnectTimeout=5 root@"${SERVER_IP}" tailscale ip -4 2>/dev/null || echo "")
+if [ -z "$TAILSCALE_IP" ]; then
+  TAILSCALE_IP="(unknown)"
+  warn "Could not determine Tailscale IP. The server may still be authenticating."
+fi
+
+TAILSCALE_DNS=$(ssh -o ConnectTimeout=5 root@"${SERVER_IP}" "tailscale status --json 2>/dev/null | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d.get(\"Self\",{}).get(\"DNSName\",\"\").rstrip(\".\"))'" || echo "")
+if [ -z "$TAILSCALE_DNS" ]; then
+  TAILSCALE_DNS="(unknown)"
+fi
+
+HERMES_IMAGE=$(sed -n "s/^hermes_image_ref:[[:space:]]*'\(.*\)'/\1/p" ansible/inventory/group_vars/all.yml 2>/dev/null)
 if grep -q '^hermes_start_runtime:[[:space:]]*true' ansible/inventory/group_vars/all.yml 2>/dev/null; then
   info "Running verification playbook..."
   ansible-playbook ansible/playbooks/verify.yml
 else
   warn "Hermes prepared but not started."
   echo ""
-  echo "  1. SSH in:        ssh hermes@<tailscale-ip>"
-  echo "  2. Interactive:    podman run -it --rm -v /home/hermes/.hermes:/opt/data <image> setup"
-  echo "  3. Start runtime:  sudo -iu hermes systemctl --user enable --now hermes.service"
+  echo "  1. SSH in:        ssh root@${TAILSCALE_IP}"
+  echo "  2. Interactive:    cd /tmp && sudo -u hermes podman run -it --rm -v /home/hermes/.hermes:/opt/data ${HERMES_IMAGE:-<image>} setup"
+  echo "  3. Start runtime:  sudo -u hermes XDG_RUNTIME_DIR=/run/user/\$(id -u hermes) systemctl --user start hermes.service"
   echo "  4. Verify:         ansible-playbook ansible/playbooks/verify.yml"
 fi
 
 # Phase 7: Summary
-TAILSCALE_IP=$(ssh -o ConnectTimeout=5 root@"${SERVER_IP}" tailscale ip -4 2>/dev/null || echo "")
-if [ -z "$TAILSCALE_IP" ]; then
-  TAILSCALE_IP="(unknown)"
-  warn "Could not determine Tailscale IP. The server may still be authenticating."
-fi
 unset TF_VAR_hcloud_token
 info "Deployment complete!"
 echo ""
-echo "  Server IP:     ${SERVER_IP}"
-echo "  Tailscale IP:  ${TAILSCALE_IP}"
+printf "  %-18s %s\n" "Server IP:" "${SERVER_IP}"
+printf "  %-18s %s\n" "Tailscale IP:" "${TAILSCALE_IP}"
+printf "  %-18s %s\n" "Tailscale DNS:" "${TAILSCALE_DNS}"
 SSH_POLICY=$(grep '^public_ssh_policy:[[:space:]]*' ansible/inventory/group_vars/all.yml 2>/dev/null | sed 's/.*:[[:space:]]*//')
 if [ "$SSH_POLICY" = "disabled_after_tailscale" ]; then
-  echo "  SSH (pub):     (disabled — use Tailscale SSH only)"
+  printf "  %-18s %s\n" "SSH (pub):" "(disabled — use Tailscale SSH only)"
 else
-  echo "  SSH (pub):     ssh root@${SERVER_IP}"
+  printf "  %-18s %s\n" "SSH (pub):" "ssh root@${SERVER_IP}"
 fi
-echo "  SSH (ts):      ssh hermes@${TAILSCALE_IP}"
+printf "  %-18s %s\n" "SSH (ts-root):" "ssh root@${TAILSCALE_IP}"
+if [ "${TAILSCALE_DNS}" != "(unknown)" ]; then
+  printf "  %-18s %s\n" "SSH (ts-root DNS):" "ssh root@${TAILSCALE_DNS}"
+fi
+printf "  %-18s %s\n" "SSH (ts-user):" "ssh hermes@${TAILSCALE_IP}"
+if [ "${TAILSCALE_DNS}" != "(unknown)" ]; then
+  printf "  %-18s %s\n" "SSH (ts-user DNS):" "ssh hermes@${TAILSCALE_DNS}"
+fi
+echo ""
+echo "  -------- Access (via SSH tunnel) --------"
+echo "  Dashboard:  ssh -L 9119:127.0.0.1:9119 hermes@${TAILSCALE_IP}  → http://127.0.0.1:9119"
+echo "  API:        ssh -L 8642:127.0.0.1:8642 hermes@${TAILSCALE_IP}  → http://127.0.0.1:8642"
 echo ""
 echo "  -------- SSH Hardening --------"
 echo "  sshd_config hardening is DISABLED by default."
 echo "  To enable: set sshd_hardening_enabled: true in ansible/inventory/group_vars/all.yml"
 echo "  Then run ./deploy.sh again — Ansible applies the changes idempotently."
-echo "  This disables password auth, restricts root login, and limits users/sessions."
+echo "  This disables password auth and limits auth attempts/sessions."
 echo "  Without it, SSH security relies on network controls (UFW + Tailscale)."

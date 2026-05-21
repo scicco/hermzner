@@ -1,18 +1,18 @@
-@@ -1,50 +0,0 @@
 ---
 # Service account
 hermes_user: hermes
 hermes_home: /home/hermes
 
 # Image pinning — must be set per deployment
-hermes_image_ref: ""
+#hermes_image_ref: 'docker.io/nousresearch/hermes-agent@sha256:57d9469ebb2c18e34c26064e3377bfd96133d54f6e7466b16f7f2f3375c694d3'
+hermes_image_ref: ''
 
 # Feature toggles
 hermes_dashboard_enabled: false
 hermes_runtime_backend: quadlet
 hermes_start_runtime: false
 backup_encryption_enabled: false
-sshd_hardening_enabled: false
+sshd_hardening_enabled: true
 security_fail2ban_enabled: true
 security_disable_unused_services: true
 security_harden_shared_memory: true
@@ -27,25 +27,25 @@ public_ssh_policy: restricted
 hermes_bind_mode: localhost
 
 # Storage
-podman_volume_label_suffix: ""
-hermes_data_dir: "{{ hermes_home }}/.hermes"
-hermes_backup_dir: "{{ hermes_home }}/backups"
+podman_volume_label_suffix: ''
+hermes_data_dir: '{{ hermes_home }}/.hermes'
+hermes_backup_dir: '{{ hermes_home }}/backups'
 
 # Compose paths (compose mode only)
-hermes_compose_file: "{{ hermes_data_dir }}/compose.yaml"
+hermes_compose_file: '{{ hermes_data_dir }}/compose.yaml'
 
 # Quadlet paths (quadlet mode)
-hermes_quadlet_dir: "{{ hermes_home }}/.config/containers/systemd"
-hermes_quadlet_file: "{{ hermes_quadlet_dir }}/hermes.container"
+hermes_quadlet_dir: '{{ hermes_home }}/.config/containers/systemd'
+hermes_quadlet_file: '{{ hermes_quadlet_dir }}/hermes.container'
 
 # Backup
 backup_retention_days: 30
-backup_age_recipient: ""
-backup_script_path: "{{ hermes_home }}/.hermes-backup.sh"
+backup_age_recipient: ''
+backup_script_path: '{{ hermes_home }}/.hermes-backup.sh'
 
 # Healthcheck
 hermes_healthcheck_enabled: true
-hermes_healthcheck_url: "http://127.0.0.1:8642/health"
+hermes_healthcheck_url: 'http://127.0.0.1:8642/health'
 
 # API
-api_server_cors_origins: ""
+api_server_cors_origins: ''

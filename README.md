@@ -22,12 +22,16 @@ vim terraform/terraform.tfvars
 vim ansible/inventory/group_vars/all.yml
 # Required: set hermes_image_ref to a pinned digest
 #   Resolve the latest digest:
-#     curl -s "https://hub.docker.com/v2/repositories/nousresearch/hermes-agent/tags/main" | jq -r '.images[0].digest'
-#   Then set: hermes_image_ref: 'nousresearch/hermes-agent@sha256:<digest>'
+#     curl -s "https://hub.docker.com/v2/repositories/nousresearch/hermes-agent/tags/main" | jq -r '.images[] | select(.architecture == "amd64" and .os == "linux") | .digest'
+#   Then set: hermes_image_ref: 'docker.io/nousresearch/hermes-agent@sha256:<digest>'
 
 # 3. Deploy
 HCLOUD_TOKEN=your_token TAILSCALE_AUTH_KEY=tskey-auth-... ./deploy.sh
 ```
+
+## Deploy Flow
+
+`deploy.sh` runs Terraform (provisions VPS) then Ansible (configures it). Ansible connects via the server's **public IPv4** — Tailscale isn't available until the Tailscale role runs. Running `terraform plan` shows the diff between Terraform state and real infrastructure; this is normal behavior, not an error. `apply` reconciles them.
 
 ## Smoke Test Deployment
 
@@ -73,6 +77,32 @@ ssh -L 9119:127.0.0.1:9119 hermes@<tailscale-ip>
 
 # Open http://127.0.0.1:9119 in browser
 ```
+
+## Backup & Restore
+
+**Daily backups** run via cron at 2am (user `hermes`). They archive `/home/hermes/.hermes/` (data + auto-generated `.env`) to `/home/hermes/backups/` with 30-day retention.
+
+```bash
+# Backup file format (plain):
+/home/hermes/backups/hermes-backup-20260521-020000.tar.gz
+
+# Backup file format (encrypted):
+/home/hermes/backups/hermes-backup-20260521-020000.tar.gz.age
+```
+
+Enable encryption by setting `backup_encryption_enabled: true` and `backup_age_recipient` (your age public key) in `group_vars/all.yml`.
+
+**Restore** from any backup archive to a running server:
+
+```bash
+# Plain backup:
+./scripts/restore.sh /path/to/hermes-backup-20260521-020000.tar.gz
+
+# Encrypted backup (requires age private key):
+./scripts/restore.sh /path/to/hermes-backup-20260521-020000.tar.gz.age --age-key ~/.age/key.txt
+```
+
+The script auto-detects the Tailscale IP (falls back to `--tailscale-ip` if Terraform state is missing), copies the archive, stops the runtime, extracts, fixes permissions, restarts, and runs `verify.yml`.
 
 ## Directory Structure
 

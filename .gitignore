@@ -15,8 +15,19 @@ ansible/inventory/hosts.yml
 *.swo
 *~
 
+# env files
+.env
+.env.*
+
 # Local reports/logs
 hermzner-local-check-report.txt
 *.log
+context.txt
+repo_check.txt
 
-*.png
+utils/
+scratches/
+.opencode
+docs/superpowers/
+
+backups

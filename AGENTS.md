@@ -4,7 +4,7 @@
 
 Provision a hardened Hetzner VPS (Ubuntu 24.04) with rootless Podman and deploy Hermes Agent behind Tailscale. Terraform creates the VPS, Ansible configures it, a `deploy.sh` orchestrates both.
 
-**Security baseline:** This project implements all 20 principles from [`COVENANT.md`](./COVENANT.md). Every role and template is designed to satisfy specific principles — see the coverage table in the spec at `docs/superpowers/specs/2026-05-18-hermes-podman-provisioning-design.md`.
+**Security baseline:** This project implements all 20 principles from [`COVENANT.md`](./COVENANT.md). Every role and template is designed to satisfy specific principles.
 
 ## Repository Layout
 
@@ -23,24 +23,28 @@ ansible/           → 5 roles + 2 playbooks + inventory/group_vars
     verify.yml     → 11 security invariants, fail-closed
 deploy.sh          → Terraform → SSH readiness loop → Ansible → verify
 teardown.sh        → terraform destroy + cleanup
+scripts/
+  restore.sh       → Restore from backup archive (plain or age-encrypted)
+  repo_check.sh    → Local security and consistency checks
 ```
 
 ## Key Architecture Decisions
 
-| Decision | Choice | Rationale |
-|----------|--------|-----------|
-| Runtime backend | Quadlet (default), Compose (fallback) | Quadlet gives cleaner systemd lifecycle; Compose for environments without systemd user sessions |
-| Container runtime | Rootless Podman | Principle 1 — dedicated `hermes` user, subuid/subgid, never root |
-| Network access | Tailscale SSH + tunnel | No public port exposure; ports bound to `127.0.0.1` |
-| Image pinning | Digest required, fail-closed | Principle 10 — `hermes_image_ref` must contain `@sha256:`; override via `ALLOW_UNPINNED_IMAGE` env var (not group_vars) |
-| Dashboard | Disabled by default | Principle 14 — `hermes_dashboard_enabled: false`, user opts in |
-| Secret storage | `/home/hermes/.hermes/.env` at `0600` | Principle 12 — generated via `openssl rand -hex 32`, never overwritten |
-| Backup encryption | age (opt-in) | Principle 6 — `backup_encryption_enabled` + `backup_age_recipient` (public key from deployer, not generated on-server) |
-| Token handling | `TF_VAR_hcloud_token` env var | No `.tfvars` file on disk; Terraform reads from environment |
-| SSH hardening | Opt-in via `sshd_hardening_enabled` | Default `false` — Ubuntu cloud images ship secure defaults |
-| fail2ban | Enabled by default (`security_fail2ban_enabled`) | Bans SSH IPs after 3 failed attempts within 10 minutes |
-| Unused services | Disabled by default (`security_disable_unused_services`) | Stops + masks avahi-daemon, cups, ModemManager, multipathd, udisks2 |
-| Shared memory | Hardened by default (`security_harden_shared_memory`) | `/dev/shm` mounted with `noexec,nosuid,nodev` |
+| Decision          | Choice                                                   | Rationale                                                                                                               |
+| ----------------- | -------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| Runtime backend   | Quadlet (default), Compose (fallback)                    | Quadlet gives cleaner systemd lifecycle; Compose for environments without systemd user sessions                         |
+| Container runtime | Rootless Podman                                          | Principle 1 — dedicated `hermes` user, subuid/subgid, never root                                                        |
+| Network access    | Tailscale SSH + tunnel                                   | No public port exposure; ports bound to `127.0.0.1`                                                                     |
+| Ansible host      | Public IPv4 (initial)                                    | Ansible runs before Tailscale exists — connects via Hetzner-assigned IPv4, not Tailscale IP                             |
+| Image pinning     | Digest required, fail-closed                             | Principle 10 — `hermes_image_ref` must contain `@sha256:`; override via `ALLOW_UNPINNED_IMAGE` env var (not group_vars) |
+| Dashboard         | Disabled by default                                      | Principle 14 — `hermes_dashboard_enabled: false`, user opts in                                                          |
+| Secret storage    | `/home/hermes/.hermes/.env` at `0600`                    | Principle 12 — generated via `openssl rand -hex 32`, never overwritten                                                  |
+| Backup encryption | age (opt-in)                                             | Principle 6 — `backup_encryption_enabled` + `backup_age_recipient` (public key from deployer, not generated on-server)  |
+| Token handling    | `TF_VAR_hcloud_token` env var                            | No `.tfvars` file on disk; Terraform reads from environment                                                             |
+| SSH hardening     | Opt-in via `sshd_hardening_enabled`                      | Default `false` — Ubuntu cloud images ship secure defaults                                                              |
+| fail2ban          | Enabled by default (`security_fail2ban_enabled`)         | Bans SSH IPs after 3 failed attempts within 10 minutes                                                                  |
+| Unused services   | Disabled by default (`security_disable_unused_services`) | Stops + masks avahi-daemon, cups, ModemManager, multipathd, udisks2                                                     |
+| Shared memory     | Hardened by default (`security_harden_shared_memory`)    | `/dev/shm` mounted with `noexec,nosuid,nodev`                                                                           |
 
 ## Preflight Assertions (fail-closed)
 
@@ -57,6 +61,7 @@ Before any role executes, `site.yml` validates:
 ## Security Verification (`verify.yml`)
 
 After deployment, 11 checks must all pass:
+
 1. Container not privileged
 2. User namespace active
 3. All capabilities dropped
@@ -85,6 +90,10 @@ systemctl --user enable --now hermes.service
 
 # Teardown:
 ./teardown.sh
+
+# Restore from backup:
+./scripts/restore.sh /path/to/hermes-backup-20260521-020000.tar.gz
+# Encrypted: ./scripts/restore.sh <file>.tar.gz.age --age-key ~/.age/key.txt
 ```
 
 ## Conventions

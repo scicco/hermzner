@@ -56,6 +56,14 @@
         fail_msg: "backup_age_recipient must be set when backup_encryption_enabled=true"
       when: backup_encryption_enabled | bool
 
+    - name: Fail if restricted mode without deployer_ip
+      assert:
+        that:
+          - deployer_ip is defined
+          - deployer_ip | length > 0
+        fail_msg: "deployer_ip is required when public_ssh_policy=restricted"
+      when: public_ssh_policy == "restricted"
+
   roles:
     - role: podman
     - role: tailscale

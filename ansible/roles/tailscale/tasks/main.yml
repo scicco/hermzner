@@ -44,7 +44,7 @@
   delay: 2
   until: tailscale_status.rc == 0
 
-- name: Register tailscale IP
+- name: Register tailscale DNS name
   set_fact:
-    tailscale_ip: "{{ (tailscale_status.stdout | from_json).Self.DNSName | regex_replace('\\.$', '') }}"
+    tailscale_dns: "{{ (tailscale_status.stdout | from_json).Self.DNSName | regex_replace('\\.$', '') }}"
   when: tailscale_status.stdout | length > 0
