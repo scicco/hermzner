@@ -1,0 +1,52 @@
+---
+- name: Get hermes UID for rootless podman
+  command: "id -u {{ hermes_user }}"
+  register: hermes_uid
+  changed_when: false
+
+- name: Wait for hermes container to be healthy
+  wait_for:
+    port: 8642
+    host: 127.0.0.1
+    delay: 2
+    timeout: 30
+
+- name: Snapshot config.yaml before mnemosyne.install
+  become: true
+  become_user: "{{ hermes_user }}"
+  command:
+    cmd: podman exec hermes sha256sum /opt/data/config.yaml
+  environment:
+    XDG_RUNTIME_DIR: "/run/user/{{ hermes_uid.stdout }}"
+  register: config_before
+  changed_when: false
+
+- name: Run mnemosyne.install inside hermes container
+  become: true
+  become_user: "{{ hermes_user }}"
+  command:
+    cmd: podman exec hermes python3 -m mnemosyne.install
+  environment:
+    XDG_RUNTIME_DIR: "/run/user/{{ hermes_uid.stdout }}"
+  changed_when: false
+
+- name: Snapshot config.yaml after mnemosyne.install
+  become: true
+  become_user: "{{ hermes_user }}"
+  command:
+    cmd: podman exec hermes sha256sum /opt/data/config.yaml
+  environment:
+    XDG_RUNTIME_DIR: "/run/user/{{ hermes_uid.stdout }}"
+  register: config_after
+  changed_when: false
+
+- name: Restart hermes service to load mnemosyne plugin
+  become: true
+  become_user: "{{ hermes_user }}"
+  systemd_service:
+    scope: user
+    name: hermes
+    state: restarted
+  environment:
+    XDG_RUNTIME_DIR: "/run/user/{{ hermes_uid.stdout }}"
+  when: config_before.stdout != config_after.stdout

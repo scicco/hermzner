@@ -1,0 +1,7 @@
+FROM {{ hermes_image_ref }}
+USER root
+RUN apt-get update && apt-get install -y --no-install-recommends python3-pip && \
+    rm -rf /var/lib/apt/lists/* && \
+    sed -i 's/include-system-site-packages = false/include-system-site-packages = true/' /opt/hermes/.venv/pyvenv.cfg && \
+    python3 -m pip install --no-cache-dir --break-system-packages "mnemosyne-memory[all]" && \
+    python3 -m mnemosyne.install

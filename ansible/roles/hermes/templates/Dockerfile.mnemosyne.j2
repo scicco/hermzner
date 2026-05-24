@@ -1,4 +1,0 @@
-FROM {{ hermes_image_ref }}
-USER root
-RUN /opt/hermes/.venv/bin/pip install --no-cache-dir "mnemosyne-memory[all]" && \
-    /opt/hermes/.venv/bin/python -m mnemosyne.install

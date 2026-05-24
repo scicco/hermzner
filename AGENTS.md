@@ -10,13 +10,15 @@ Provision a hardened Hetzner VPS (Ubuntu 24.04) with rootless Podman and deploy 
 
 ```
 terraform/         → Hetzner VPS (main.tf, variables.tf, outputs.tf)
-ansible/           → 5 roles + 2 playbooks + inventory/group_vars
+ansible/           → 7 roles + 2 playbooks + inventory/group_vars
   inventory/       → hosts.yml + group_vars/
   roles/
     podman/        → Rootless Podman, hermes user, subuid/subgid, linger
     tailscale/     → apt install, auth key, SSH enabled, IP registration
     security/      → UFW, sysctl hardening, unattended-upgrades, SSH policy, umask 077, fail2ban, disable unused services, /dev/shm hardening
-    hermes/        → Quadlet (default) + Compose (fallback) templates, Dockerfile.mnemosyne.j2, secrets
+    mnemosyne_build/ → Build custom container image with mnemosyne-memory[all]
+    hermes/        → Quadlet (default) + Compose (fallback) templates, secrets
+    mnemosyne_runtime/ → Runtime mnemosyne.install + service restart
     backup/        → daily local backups, optionally age-encrypted, 30-day retention
   playbooks/
     site.yml       → Preflight assertions → roles
@@ -109,7 +111,14 @@ ssh hermes@<tailscale-ip>
 podman run -it --rm -v /home/hermes/.hermes:/opt/data <image> setup
 systemctl --user enable --now hermes.service
 
-# Post-deploy (if mnemosyne enabled, after container running):
+# Post-deploy (if mnemosyne enabled, runtime started — install is automated by mnemosyne_runtime role):
+ssh hermes@<tailscale-ip>
+cd /tmp && sudo -u hermes XDG_RUNTIME_DIR=/run/user/$(id -u hermes) podman exec -it hermes /opt/hermes/.venv/bin/hermes memory setup
+
+# Post-deploy (if mnemosyne enabled, runtime NOT started — manual steps):
+ssh root@<tailscale-ip>
+sudo -u hermes XDG_RUNTIME_DIR=/run/user/$(id -u hermes) podman exec hermes python3 -m mnemosyne.install
+sudo -u hermes XDG_RUNTIME_DIR=/run/user/$(id -u hermes) systemctl --user restart hermes.service
 ssh hermes@<tailscale-ip>
 cd /tmp && sudo -u hermes XDG_RUNTIME_DIR=/run/user/$(id -u hermes) podman exec -it hermes /opt/hermes/.venv/bin/hermes memory setup
 
@@ -130,4 +139,4 @@ cd /tmp && sudo -u hermes XDG_RUNTIME_DIR=/run/user/$(id -u hermes) podman exec 
 - **Host key verification** — `ssh-keyscan` saves to `known_hosts`; Ansible `host_key_checking` kept enabled
 - **Token handling** — `TF_VAR_hcloud_token` env var; no `.tfvars` file on disk
 - **Image pinning override** — `ALLOW_UNPINNED_IMAGE` env var (not `inventory/group_vars/all.yml`)
-- **Custom image build** — `hermes_mnemosyne_enabled` triggers `podman build` from a Jinja2 Dockerfile; resulting image is `localhost/hermes-mnemosyne:latest`
+- **Custom image build** — `hermes_mnemosyne_enabled` triggers the `mnemosyne_build` role (`podman build` from a Jinja2 Dockerfile); resulting image is `localhost/hermes-mnemosyne:latest`

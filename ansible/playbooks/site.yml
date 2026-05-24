@@ -68,5 +68,7 @@
     - role: podman
     - role: tailscale
     - role: security
+    - role: mnemosyne_build
     - role: hermes
+    - role: mnemosyne_runtime
     - role: backup

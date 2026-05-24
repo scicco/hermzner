@@ -113,13 +113,30 @@ fi
 if grep -q '^hermes_start_runtime:[[:space:]]*true' ansible/inventory/group_vars/all.yml 2>/dev/null; then
   info "Running verification playbook..."
   ansible-playbook ansible/playbooks/verify.yml
+
+  if grep -q '^hermes_mnemosyne_enabled:[[:space:]]*true' ansible/inventory/group_vars/all.yml 2>/dev/null; then
+    echo ""
+    echo "  -------- Mnemosyne Memory --------"
+    echo "  Plugin installed automatically by Ansible."
+    echo "  To select 'mnemosyne' as the active memory provider:"
+    echo "    ssh hermes@${TAILSCALE_IP}"
+    echo "    cd /tmp && sudo -u hermes XDG_RUNTIME_DIR=/run/user/\$(id -u hermes) podman exec -it hermes /opt/hermes/.venv/bin/hermes memory setup"
+    echo "    # Select 'mnemosyne' from the provider list"
+  fi
 else
   warn "Hermes prepared but not started."
   echo ""
   echo "  1. SSH in:        ssh root@${TAILSCALE_IP}"
   echo "  2. Interactive:    cd /tmp && sudo -u hermes podman run -it --rm -v /home/hermes/.hermes:/opt/data ${HERMES_IMAGE:-<image>} setup"
   echo "  3. Start runtime:  sudo -u hermes XDG_RUNTIME_DIR=/run/user/\$(id -u hermes) systemctl --user start hermes.service"
-  echo "  4. Verify:         ansible-playbook ansible/playbooks/verify.yml"
+  if grep -q '^hermes_mnemosyne_enabled:[[:space:]]*true' ansible/inventory/group_vars/all.yml 2>/dev/null; then
+    echo "  4. Install plugin: sudo -u hermes XDG_RUNTIME_DIR=/run/user/\$(id -u hermes) podman exec hermes python3 -m mnemosyne.install"
+    echo "  5. Load plugin:   sudo -u hermes XDG_RUNTIME_DIR=/run/user/\$(id -u hermes) systemctl --user restart hermes.service"
+    echo "  6. Select memory:  cd /tmp && sudo -u hermes XDG_RUNTIME_DIR=/run/user/\$(id -u hermes) podman exec -it hermes /opt/hermes/.venv/bin/hermes memory setup"
+    echo "  7. Verify:         ansible-playbook ansible/playbooks/verify.yml"
+  else
+    echo "  4. Verify:         ansible-playbook ansible/playbooks/verify.yml"
+  fi
 fi
 
 # Phase 7: Summary
@@ -158,9 +175,14 @@ echo "  Without it, SSH security relies on network controls (UFW + Tailscale)."
 if grep -q '^hermes_mnemosyne_enabled:[[:space:]]*true' ansible/inventory/group_vars/all.yml 2>/dev/null; then
   echo ""
   echo "  -------- Mnemosyne Memory --------"
-  echo "  Container built with mnemosyne-memory[all]."
-  echo "  Post-deploy setup (ssh in, then run inside container):"
+  echo "  Custom image built with mnemosyne-memory[all]."
+  echo "  Plugin installed automatically (mnemosyne_runtime role)."
+  if ! grep -q '^hermes_start_runtime:[[:space:]]*true' ansible/inventory/group_vars/all.yml 2>/dev/null; then
+    echo "  Remember to run:"
+    echo "    podman exec hermes python3 -m mnemosyne.install"
+    echo "    systemctl --user restart hermes.service"
+  fi
+  echo "  To select 'mnemosyne' as the active provider:"
   echo "    ssh hermes@${TAILSCALE_IP}"
   echo "    cd /tmp && sudo -u hermes XDG_RUNTIME_DIR=/run/user/\$(id -u hermes) podman exec -it hermes /opt/hermes/.venv/bin/hermes memory setup"
-  echo "    # Select 'mnemosyne' as the provider"
 fi

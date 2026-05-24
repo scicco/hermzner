@@ -92,19 +92,34 @@ hermes_mnemosyne_enabled: true
 
 ### What Happens
 
-When enabled, the deployment pipeline builds a custom container image extending the pinned Hermes base with `mnemosyne-memory[all]`, tags it as `localhost/hermes-mnemosyne:latest`, and sets `MNEMOSYNE_DATA_DIR=/opt/data/mnemosyne` for SQLite persistence in the existing volume mount.
+When enabled, two dedicated Ansible roles handle the integration:
 
-### Post-Deploy Setup (one-time)
+- **`mnemosyne_build`** — builds a custom container image extending the pinned Hermes base with `mnemosyne-memory[all]`, tags it as `localhost/hermes-mnemosyne:latest`
+- **`mnemosyne_runtime`** — runs after the container starts: waits for the health endpoint, runs `mnemosyne.install` inside the container (plugin symlink + config.yaml update), and restarts the service only if changes were made
 
-After the container is running:
+The Quadlet/Compose template uses the custom image and sets `MNEMOSYNE_DATA_DIR=/opt/data/mnemosyne` for SQLite persistence.
+
+### Post-Deploy Setup (one-time, after `hermes_start_runtime: true`)
+
+The runtime install is automated by Ansible. The only manual step is selecting `mnemosyne` as the active memory provider:
 
 ```bash
 ssh hermes@<tailscale-ip>
 cd /tmp && sudo -u hermes XDG_RUNTIME_DIR=/run/user/$(id -u hermes) podman exec -it hermes /opt/hermes/.venv/bin/hermes memory setup
-# Select 'mnemosyne' as the provider
+# Select 'mnemosyne' from the provider list
 ```
 
 Verify with `/opt/hermes/.venv/bin/hermes memory status` (inside container) — should show `Provider: mnemosyne`.
+
+### Manual Setup (if `hermes_start_runtime: false`)
+
+```bash
+ssh root@<tailscale-ip>
+sudo -u hermes XDG_RUNTIME_DIR=/run/user/$(id -u hermes) podman exec hermes python3 -m mnemosyne.install
+sudo -u hermes XDG_RUNTIME_DIR=/run/user/$(id -u hermes) systemctl --user restart hermes.service
+ssh hermes@<tailscale-ip>
+cd /tmp && sudo -u hermes XDG_RUNTIME_DIR=/run/user/$(id -u hermes) podman exec -it hermes /opt/hermes/.venv/bin/hermes memory setup
+```
 
 Memory data lives at `/home/hermes/.hermes/mnemosyne/` and is included in daily backups.
 
