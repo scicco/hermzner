@@ -84,6 +84,26 @@ cp terraform/terraform.tfvars.example terraform/terraform.tfvars
 
 HCLOUD_TOKEN=xxx TAILSCALE_AUTH_KEY=tskey-auth-xxx ./deploy.sh
 
+## SSH as Root (VPS Operations)
+
+When SSHed as root, all `hermes` user commands need:
+
+```bash
+cd /tmp && sudo -u hermes XDG_RUNTIME_DIR=/run/user/$(id -u hermes) <command>
+```
+
+- `cd /tmp` — sudo inherits cwd; hermes can't chdir to /root
+- `XDG_RUNTIME_DIR` — required for rootless podman/systemd
+- `sudo -u hermes` — run as the hermes user
+
+Quadlet services use transient/generated units — use `start`/`restart`/`stop`, NOT `enable --now`:
+
+```bash
+sudo -u hermes XDG_RUNTIME_DIR=/run/user/$(id -u hermes) systemctl --user restart hermes.service
+```
+
+Hermes binary lives in a venv at `/opt/hermes/.venv/bin/hermes` — use full path in `podman exec`.
+
 # Post-deploy (if hermes_start_runtime: false):
 ssh hermes@<tailscale-ip>
 podman run -it --rm -v /home/hermes/.hermes:/opt/data <image> setup
@@ -91,7 +111,7 @@ systemctl --user enable --now hermes.service
 
 # Post-deploy (if mnemosyne enabled, after container running):
 ssh hermes@<tailscale-ip>
-sudo -u hermes XDG_RUNTIME_DIR=/run/user/$(id -u hermes) podman exec -it hermes hermes memory setup
+cd /tmp && sudo -u hermes XDG_RUNTIME_DIR=/run/user/$(id -u hermes) podman exec -it hermes /opt/hermes/.venv/bin/hermes memory setup
 
 # Teardown:
 ./teardown.sh
