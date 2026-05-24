@@ -33,6 +33,33 @@
     group: "{{ hermes_user }}"
     mode: "0600"
 
+- name: Ensure mnemosyne build directory exists
+  file:
+    path: "{{ hermes_home }}/hermes-mnemosyne"
+    state: directory
+    owner: "{{ hermes_user }}"
+    group: "{{ hermes_user }}"
+    mode: "0700"
+  when: hermes_mnemosyne_enabled | bool
+
+- name: Deploy Mnemosyne Dockerfile
+  template:
+    src: Dockerfile.mnemosyne.j2
+    dest: "{{ hermes_home }}/hermes-mnemosyne/Dockerfile.mnemosyne"
+    owner: "{{ hermes_user }}"
+    group: "{{ hermes_user }}"
+    mode: "0600"
+  when: hermes_mnemosyne_enabled | bool
+
+- name: Build Mnemosyne container image
+  become: true
+  become_user: "{{ hermes_user }}"
+  command:
+    cmd: podman build -t localhost/hermes-mnemosyne:latest -f Dockerfile.mnemosyne .
+    chdir: "{{ hermes_home }}/hermes-mnemosyne"
+  when: hermes_mnemosyne_enabled | bool
+  changed_when: true
+
 - name: Deploy Quadlet container unit
   template:
     src: hermes.container.j2

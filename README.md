@@ -56,6 +56,7 @@ vim terraform/terraform.tfvars
 | Container Runtime | Rootless Podman (Quadlet default, Compose fallback)                         |
 | Network           | Tailscale SSH + subnet access                                               |
 | Service           | Hermes Agent (gateway, API, optional dashboard)                             |
+| Mnemosyne Memory  | SQLite-vec memory backend (optional, toggle via `hermes_mnemosyne_enabled`) |
 | Backups           | Daily local backups to /home/hermes/backups/; optionally encrypted with age |
 
 ## Security Controls
@@ -78,9 +79,38 @@ ssh -L 9119:127.0.0.1:9119 hermes@<tailscale-ip>
 # Open http://127.0.0.1:9119 in browser
 ```
 
+## Mnemosyne Memory Backend (Optional)
+
+Mnemosyne provides persistent memory (SQLite-vec) for the Hermes Agent, enabling long-term recall across conversations.
+
+### Enable
+
+```yaml
+# ansible/inventory/group_vars/all.yml
+hermes_mnemosyne_enabled: true
+```
+
+### What Happens
+
+When enabled, the deployment pipeline builds a custom container image extending the pinned Hermes base with `mnemosyne-memory[all]`, tags it as `localhost/hermes-mnemosyne:latest`, and sets `MNEMOSYNE_DATA_DIR=/opt/data/mnemosyne` for SQLite persistence in the existing volume mount.
+
+### Post-Deploy Setup (one-time)
+
+After the container is running:
+
+```bash
+ssh hermes@<tailscale-ip>
+cd /tmp && sudo -u hermes XDG_RUNTIME_DIR=/run/user/$(id -u hermes) podman exec -it hermes /opt/hermes/.venv/bin/hermes memory setup
+# Select 'mnemosyne' as the provider
+```
+
+Verify with `/opt/hermes/.venv/bin/hermes memory status` (inside container) — should show `Provider: mnemosyne`.
+
+Memory data lives at `/home/hermes/.hermes/mnemosyne/` and is included in daily backups.
+
 ## Backup & Restore
 
-**Daily backups** run via cron at 2am (user `hermes`). They archive `/home/hermes/.hermes/` (data + auto-generated `.env`) to `/home/hermes/backups/` with 30-day retention.
+**Daily backups** run via cron at 2am (user `hermes`). They archive `/home/hermes/.hermes/` (data + auto-generated `.env`) to `/home/hermes/backups/` with 30-day retention. When Mnemosyne is enabled, memory data at `/home/hermes/.hermes/mnemosyne/` is included automatically.
 
 ```bash
 # Backup file format (plain):
@@ -135,4 +165,4 @@ Output is written to `hermzner-local-check-report.txt` (gitignored).
 
 ## Customization
 
-See `ansible/inventory/group_vars/all.yml` for all configurable options.
+See `ansible/inventory/group_vars/all.yml` for all configurable options, including feature toggles (`hermes_dashboard_enabled`, `hermes_mnemosyne_enabled`, `hermes_start_runtime`), resource limits, backup settings, and security policies.

@@ -107,6 +107,9 @@ if [ -z "$TAILSCALE_DNS" ]; then
 fi
 
 HERMES_IMAGE=$(sed -n "s/^hermes_image_ref:[[:space:]]*'\(.*\)'/\1/p" ansible/inventory/group_vars/all.yml 2>/dev/null)
+if grep -q '^hermes_mnemosyne_enabled:[[:space:]]*true' ansible/inventory/group_vars/all.yml 2>/dev/null; then
+  HERMES_IMAGE="localhost/hermes-mnemosyne:latest"
+fi
 if grep -q '^hermes_start_runtime:[[:space:]]*true' ansible/inventory/group_vars/all.yml 2>/dev/null; then
   info "Running verification playbook..."
   ansible-playbook ansible/playbooks/verify.yml
@@ -151,3 +154,13 @@ echo "  To enable: set sshd_hardening_enabled: true in ansible/inventory/group_v
 echo "  Then run ./deploy.sh again — Ansible applies the changes idempotently."
 echo "  This disables password auth and limits auth attempts/sessions."
 echo "  Without it, SSH security relies on network controls (UFW + Tailscale)."
+
+if grep -q '^hermes_mnemosyne_enabled:[[:space:]]*true' ansible/inventory/group_vars/all.yml 2>/dev/null; then
+  echo ""
+  echo "  -------- Mnemosyne Memory --------"
+  echo "  Container built with mnemosyne-memory[all]."
+  echo "  Post-deploy setup (ssh in, then run inside container):"
+  echo "    ssh hermes@${TAILSCALE_IP}"
+  echo "    cd /tmp && sudo -u hermes XDG_RUNTIME_DIR=/run/user/\$(id -u hermes) podman exec -it hermes /opt/hermes/.venv/bin/hermes memory setup"
+  echo "    # Select 'mnemosyne' as the provider"
+fi

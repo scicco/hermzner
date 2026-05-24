@@ -1,6 +1,6 @@
 services:
   hermes:
-    image: "{{ hermes_image_ref }}"
+    image: "{{ 'localhost/hermes-mnemosyne:latest' if hermes_mnemosyne_enabled else hermes_image_ref }}"
     container_name: hermes
     restart: unless-stopped
     command: ["gateway", "run"]
@@ -25,6 +25,9 @@ services:
       API_SERVER_HOST: "0.0.0.0"
       API_SERVER_CORS_ORIGINS: "{{ api_server_cors_origins }}"
       HERMES_DASHBOARD: "{{ '1' if hermes_dashboard_enabled else '0' }}"
+      {% if hermes_mnemosyne_enabled %}
+      MNEMOSYNE_DATA_DIR: "/opt/data/mnemosyne"
+      {% endif %}
     env_file:
       - "{{ hermes_data_dir }}/.env"
     volumes:

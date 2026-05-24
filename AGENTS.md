@@ -16,7 +16,7 @@ ansible/           → 5 roles + 2 playbooks + inventory/group_vars
     podman/        → Rootless Podman, hermes user, subuid/subgid, linger
     tailscale/     → apt install, auth key, SSH enabled, IP registration
     security/      → UFW, sysctl hardening, unattended-upgrades, SSH policy, umask 077, fail2ban, disable unused services, /dev/shm hardening
-    hermes/        → Quadlet (default) + Compose (fallback) templates, secrets
+    hermes/        → Quadlet (default) + Compose (fallback) templates, Dockerfile.mnemosyne.j2, secrets
     backup/        → daily local backups, optionally age-encrypted, 30-day retention
   playbooks/
     site.yml       → Preflight assertions → roles
@@ -45,6 +45,7 @@ scripts/
 | fail2ban          | Enabled by default (`security_fail2ban_enabled`)         | Bans SSH IPs after 3 failed attempts within 10 minutes                                                                  |
 | Unused services   | Disabled by default (`security_disable_unused_services`) | Stops + masks avahi-daemon, cups, ModemManager, multipathd, udisks2                                                     |
 | Shared memory     | Hardened by default (`security_harden_shared_memory`)    | `/dev/shm` mounted with `noexec,nosuid,nodev`                                                                           |
+| Memory backend    | Mnemosyne (opt-in via `hermes_mnemosyne_enabled`)        | SQLite-vec memory, custom Docker image built from pinned base, data in existing volume mount                           |
 
 ## Preflight Assertions (fail-closed)
 
@@ -88,6 +89,10 @@ ssh hermes@<tailscale-ip>
 podman run -it --rm -v /home/hermes/.hermes:/opt/data <image> setup
 systemctl --user enable --now hermes.service
 
+# Post-deploy (if mnemosyne enabled, after container running):
+ssh hermes@<tailscale-ip>
+sudo -u hermes XDG_RUNTIME_DIR=/run/user/$(id -u hermes) podman exec -it hermes hermes memory setup
+
 # Teardown:
 ./teardown.sh
 
@@ -105,3 +110,4 @@ systemctl --user enable --now hermes.service
 - **Host key verification** — `ssh-keyscan` saves to `known_hosts`; Ansible `host_key_checking` kept enabled
 - **Token handling** — `TF_VAR_hcloud_token` env var; no `.tfvars` file on disk
 - **Image pinning override** — `ALLOW_UNPINNED_IMAGE` env var (not `inventory/group_vars/all.yml`)
+- **Custom image build** — `hermes_mnemosyne_enabled` triggers `podman build` from a Jinja2 Dockerfile; resulting image is `localhost/hermes-mnemosyne:latest`

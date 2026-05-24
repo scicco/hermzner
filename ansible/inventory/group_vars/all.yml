@@ -10,6 +10,7 @@ hermes_image_ref: ''
 # Feature toggles
 hermes_dashboard_enabled: false
 hermes_runtime_backend: quadlet
+hermes_mnemosyne_enabled: false
 hermes_start_runtime: false
 backup_encryption_enabled: false
 sshd_hardening_enabled: true

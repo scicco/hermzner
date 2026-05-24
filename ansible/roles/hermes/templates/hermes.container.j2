@@ -4,7 +4,7 @@ After=network-online.target
 Wants=network-online.target
 
 [Container]
-Image={{ hermes_image_ref }}
+Image={{ hermes_image_ref if not hermes_mnemosyne_enabled else 'localhost/hermes-mnemosyne:latest' }}
 ContainerName=hermes
 Exec=gateway run
 {% if hermes_dashboard_enabled %}
@@ -13,6 +13,9 @@ Environment=HERMES_DASHBOARD=1
 Environment=API_SERVER_ENABLED=true
 Environment=API_SERVER_HOST=0.0.0.0
 Environment=API_SERVER_CORS_ORIGINS={{ api_server_cors_origins | quote }}
+{% if hermes_mnemosyne_enabled %}
+Environment=MNEMOSYNE_DATA_DIR=/opt/data/mnemosyne
+{% endif %}
 EnvironmentFile={{ hermes_data_dir }}/.env
 Volume={{ hermes_data_dir }}:/opt/data{{ podman_volume_label_suffix }}
 PublishPort=127.0.0.1:8642:8642
