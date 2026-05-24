@@ -105,7 +105,7 @@ The runtime install is automated by Ansible. The only manual step is selecting `
 
 ```bash
 ssh hermes@<tailscale-ip>
-cd /tmp && sudo -u hermes XDG_RUNTIME_DIR=/run/user/$(id -u hermes) podman exec -it hermes /opt/hermes/.venv/bin/hermes memory setup
+podman exec -it hermes /opt/hermes/.venv/bin/hermes memory setup
 # Select 'mnemosyne' from the provider list
 ```
 
@@ -118,7 +118,7 @@ ssh root@<tailscale-ip>
 sudo -u hermes XDG_RUNTIME_DIR=/run/user/$(id -u hermes) podman exec hermes python3 -m mnemosyne.install
 sudo -u hermes XDG_RUNTIME_DIR=/run/user/$(id -u hermes) systemctl --user restart hermes.service
 ssh hermes@<tailscale-ip>
-cd /tmp && sudo -u hermes XDG_RUNTIME_DIR=/run/user/$(id -u hermes) podman exec -it hermes /opt/hermes/.venv/bin/hermes memory setup
+podman exec -it hermes /opt/hermes/.venv/bin/hermes memory setup
 ```
 
 Memory data lives at `/home/hermes/.hermes/mnemosyne/` and is included in daily backups.

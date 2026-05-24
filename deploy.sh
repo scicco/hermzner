@@ -120,7 +120,7 @@ if grep -q '^hermes_start_runtime:[[:space:]]*true' ansible/inventory/group_vars
     echo "  Plugin installed automatically by Ansible."
     echo "  To select 'mnemosyne' as the active memory provider:"
     echo "    ssh hermes@${TAILSCALE_IP}"
-    echo "    cd /tmp && sudo -u hermes XDG_RUNTIME_DIR=/run/user/\$(id -u hermes) podman exec -it hermes /opt/hermes/.venv/bin/hermes memory setup"
+    echo "    podman exec -it hermes /opt/hermes/.venv/bin/hermes memory setup"
     echo "    # Select 'mnemosyne' from the provider list"
   fi
 else
@@ -184,5 +184,5 @@ if grep -q '^hermes_mnemosyne_enabled:[[:space:]]*true' ansible/inventory/group_
   fi
   echo "  To select 'mnemosyne' as the active provider:"
   echo "    ssh hermes@${TAILSCALE_IP}"
-  echo "    cd /tmp && sudo -u hermes XDG_RUNTIME_DIR=/run/user/\$(id -u hermes) podman exec -it hermes /opt/hermes/.venv/bin/hermes memory setup"
+  echo "    podman exec -it hermes /opt/hermes/.venv/bin/hermes memory setup"
 fi

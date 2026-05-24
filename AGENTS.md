@@ -98,6 +98,8 @@ cd /tmp && sudo -u hermes XDG_RUNTIME_DIR=/run/user/$(id -u hermes) <command>
 - `XDG_RUNTIME_DIR` — required for rootless podman/systemd
 - `sudo -u hermes` — run as the hermes user
 
+When SSHed directly as `hermes@<host>`, `podman exec` works without `cd /tmp`, `sudo`, or `XDG_RUNTIME_DIR` — the user session sets these automatically.
+
 Quadlet services use transient/generated units — use `start`/`restart`/`stop`, NOT `enable --now`:
 
 ```bash
@@ -113,14 +115,14 @@ systemctl --user enable --now hermes.service
 
 # Post-deploy (if mnemosyne enabled, runtime started — install is automated by mnemosyne_runtime role):
 ssh hermes@<tailscale-ip>
-cd /tmp && sudo -u hermes XDG_RUNTIME_DIR=/run/user/$(id -u hermes) podman exec -it hermes /opt/hermes/.venv/bin/hermes memory setup
+podman exec -it hermes /opt/hermes/.venv/bin/hermes memory setup
 
 # Post-deploy (if mnemosyne enabled, runtime NOT started — manual steps):
 ssh root@<tailscale-ip>
 sudo -u hermes XDG_RUNTIME_DIR=/run/user/$(id -u hermes) podman exec hermes python3 -m mnemosyne.install
 sudo -u hermes XDG_RUNTIME_DIR=/run/user/$(id -u hermes) systemctl --user restart hermes.service
 ssh hermes@<tailscale-ip>
-cd /tmp && sudo -u hermes XDG_RUNTIME_DIR=/run/user/$(id -u hermes) podman exec -it hermes /opt/hermes/.venv/bin/hermes memory setup
+podman exec -it hermes /opt/hermes/.venv/bin/hermes memory setup
 
 # Teardown:
 ./teardown.sh
